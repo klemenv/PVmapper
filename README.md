@@ -1,13 +1,25 @@
-# Channel Access PV Directory/Name Server
+# PVmapper resolves PV names to IOC servers
 
-The [EPICS](https://epics-controls.org/) Channel Access PV Name Server is both a Channel Access server and Channel Access client. It provides a means for clients to find process variables without the IOCs having to receive and answer all the search requests from those clients. It can also be used to connect multiple network subnets together.
+PVmapper project started after arising challenges to control the broadcast
+floods in a saturated EPICS environment. With emerging number of busy EPICS
+operator screens, misbehaving Channel Access clients, and the tendency to
+develop run-once tools for reporting or AI needs, the EPICS broadcast traffic
+seems to be very intense and on occasions detremental to the health of the
+controls network infrastructure.
 
-The Name Server may run on a machine with multiple network cards, so the clients and servers may be on different subnets.
+Many facilities utilizing EPICS have come to similar conclusions in the past.
+Various ideas have emerged how to address the issue, including the original
+[CA-nameserver](https://epics.anl.gov/extensions/nameserver/index.php).
+Lately a more modern Java implementation has been
+[cfNameserver](https://github.com/ChannelFinder/cfNameserver) implemented
+and is part of the ChannelFinder and recsync feature rich framework.
 
-## Links
-
-More details are available on the [Nameserver webpage](https://epics.anl.gov/extensions/nameserver/) at APS.
-
-
-## Wishlist
-* configuration to allow/deny PVs through a config file
+The goal of this project is to be a simple yet reliable EPICS name server
+that works seamlessly in any existing EPICS environment. It aims to build
+on original EPICS ideology of self discovering environment, but consolidating
+broadcast traffic for reduced resources footprint. Aside from simplicity, the
+motivation for this project were:
+* reduce EPICS broadcast footprint
+* support any IOC (including LabView, pcaspy etc.) without modifying it
+* recognize new IOCs dynamically
+* adapt to IOC changing list of PVs upon reboot or dynamically
