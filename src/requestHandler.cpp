@@ -53,7 +53,7 @@ pvExistReturn RequestHandler::pvExistTest(const casCtx& /* ctx */, const caNetAd
     }
 
     try {
-        auto iocAddr = m_directory.findPv(pvname);
+        auto iocAddr = m_directory.findPv(pvname, clientIP);
         return pvExistReturn(caNetAddr(iocAddr));
     } catch (std::runtime_error& e) {
         LOG_INFO("%s\n", e.what());

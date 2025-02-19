@@ -13,7 +13,7 @@ Directory::~Directory()
 {
 }
 
-struct sockaddr_in Directory::findPv(const std::string& pvname)
+struct sockaddr_in Directory::findPv(const std::string& pvname, const std::string& client)
 {
     std::shared_ptr<PvInfo> pvinfo;
 
@@ -40,8 +40,7 @@ struct sockaddr_in Directory::findPv(const std::string& pvname)
         ioc->mutex.unlock();
 
         if (active) {
-//            LOG_INFO("PV '%s' searched by '%s' found on IOC '%s:%hu'\n", pvname.c_str(), clientIP.c_str(), ioc);
-            LOG_INFO("PV '%s' found on IOC '%s'\n", pvname.c_str(), hostname);
+            LOG_INFO("PV '%s' searched by '%s' found on IOC '%s'\n", pvname.c_str(), client.c_str(), hostname.c_str());
             return addr;
         }
 
@@ -84,7 +83,7 @@ void Directory::purgeCache(long maxAge)
     unsigned removed = 0;
     unsigned remain = 0;
 
-    LOG_DEBUG("Flushing PVs that have been disconnected for more than %ld seconds", maxAge);
+    LOG_DEBUG("Flushing PVs that have been disconnected for more than %ld seconds\n", maxAge);
 
     // Remove non-existing PVs that no-one has searched for in a while
     m_searchedPvsMutex.lock();
@@ -98,6 +97,8 @@ void Directory::purgeCache(long maxAge)
         }
     }
     m_searchedPvsMutex.unlock();
+
+    // TODO: m_pvs
 
     LOG_DEBUG("Removed %u PVs not searched for over %ld seconds, %u remain in cache", removed, maxAge, remain);
 }
@@ -151,6 +152,8 @@ void Directory::handleConnectionStatus(struct connection_handler_args args)
             pvinfo->mutex.unlock();
         }
 
+        LOG_DEBUG("PV '%s' connected to IOC '%s', storing in cache\n", ca_name(args.chid), hostname);
+
     } else if (args.op == CA_OP_CONN_DOWN) {
         // This will only trigger for the PVs monitoring the IOC status.
         // All the others we've already disconnected right away
@@ -160,15 +163,24 @@ void Directory::handleConnectionStatus(struct connection_handler_args args)
         auto it = m_iocs.find(hostname);
         if (it != m_iocs.end()) {
             ioc = it->second;
+
+            // Forget this IOC when any of its PVs disconnects.
+            // This assumes that IOC doesn't dynamically add/remove
+            // PVs, which is the case for standard EPICS IOC loading
+            // PVs from .db files, but not necessarily for CA gateway
+            // or pcaspy IOC.
+            // Worst case scenario, we'll have to search for some PVs
+            // again.
+            m_iocs.erase(it);
         }
         m_iocsMutex.unlock();
 
         if (ioc) {
+            // Make sure that any shared pointers from m_pvs know that
+            // the IOC is down.
             ioc->mutex.lock();
-            if (ioc->heartbeatId == args.chid) {
-                ioc->status = Directory::IocInfo::Status::UNAVAILABLE;
-                ioc->heartbeatId = 0;
-            }
+            ioc->status = Directory::IocInfo::Status::UNAVAILABLE;
+            ioc->heartbeatId = 0;
             ioc->mutex.unlock();
         }
 
@@ -180,5 +192,7 @@ void Directory::handleConnectionStatus(struct connection_handler_args args)
         // The same PV might not be present in the same IOC after it comes back
         // online, so just disconnect and forget about it
         ca_clear_channel(args.chid);
+
+        LOG_DEBUG("PV '%s' disconnected, IOC '%s' probably shut down, removed from cache\n", ca_name(args.chid), hostname);
     }
 }

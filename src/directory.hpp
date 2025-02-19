@@ -67,7 +67,7 @@ class Directory {
         Directory();
         ~Directory();
 
-        struct sockaddr_in findPv(const std::string& pvname);
+        struct sockaddr_in findPv(const std::string& pvname, const std::string& client);
 
         /** Remove PVs that noone has searched for in a while to optimize performance */
         void purgeCache(long maxAge=600);

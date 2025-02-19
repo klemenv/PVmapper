@@ -43,6 +43,17 @@ void parseConfig(const std::string& configfile, AccessControl& accessControl)
 	}
 }
 
+void usage(const std::string& prog)
+{
+	printf("Usage: %s [options]\n", prog.c_str());
+	printf("\n");
+	printf("Options:\n");
+	printf("  -v ........... print version number\n");
+	printf("  -c <file> .... path to config file\n");
+	printf("  -l <level> ... log level 0-3, default 2\n");
+	printf("  -p <delay> ... time between purging the cache\n");
+}
+
 int main(int argc, char** argv)
 {
 	AccessControl accessControl;
@@ -51,11 +62,11 @@ int main(int argc, char** argv)
 	errlogSevEnum loglevel = errlogMajor;
 
 	int c;
-	while ((c = getopt(argc, argv, "c:vp:l:")) != -1) {
+	while ((c = getopt(argc, argv, "hc:vp:l:")) != -1) {
 		switch (c) {
 		case 'v':
 			// print version
-			break;
+			return 0;
 		case 'c':
 			// config file
 			parseConfig(optarg, accessControl);
@@ -73,6 +84,9 @@ int main(int argc, char** argv)
 				default: loglevel = errlogFatal; break;
 			}
 			break;
+		case 'h':
+			usage(argv[0]);
+			return 1;
 		default:
 			break;
 		}
@@ -89,6 +103,7 @@ int main(int argc, char** argv)
 		// Time to purge the cache?
 		if (lastPurge + purgeTime < epicsTime::getCurrent()) {
 			directory.purgeCache(purgeTime);
+			lastPurge = epicsTime::getCurrent();
 		}
 	}
 
