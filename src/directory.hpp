@@ -32,13 +32,16 @@ class Directory {
             epicsMutex mutex;
 
             /* Pretty name for logging purposes */
-            std::string prettyName;
+            std::string name;
 
             /** Populate IOC addr based on connected channel id */
             bool setAddr(chid chanId);
         };
 
         struct PvInfo {
+            /* Original name that was searched for, it may be different than real PV name if aliased  */
+            std::string name;
+
             /* Timestamp when last client searched for this PV, used by book-keeping */
             epicsTime lastSearched;
 
@@ -55,11 +58,11 @@ class Directory {
 
         std::map<std::string, std::shared_ptr<IocInfo>> m_iocs;
         std::map<std::string, std::shared_ptr<PvInfo>> m_pvs;
-        std::map<chid, std::shared_ptr<PvInfo>> m_searchedPvs;
+        std::map<chid, std::shared_ptr<PvInfo>> m_connectedPvs;
 
         epicsMutex m_iocsMutex;
         epicsMutex m_pvsMutex;
-        epicsMutex m_searchedPvsMutex;
+        epicsMutex m_connectedPvsMutex;
 
         void handleConnectionStatus(struct connection_handler_args args);
 
