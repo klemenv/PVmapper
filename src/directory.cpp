@@ -2,6 +2,41 @@
 #include "logging.hpp"
 
 #include <stdexcept>
+#include <sstream>
+
+struct sockaddr_in Directory::IocInfo::getIocAddr(chid chanId)
+{
+    struct sockaddr_in addr;
+
+    char buf[512] = "";
+    if (ca_get_host_name(chanId, buf, sizeof(buf)) != 0) {
+        throw std::runtime_error("Failed to resolve IOC address");
+    }
+
+    std::string iocname = buf;
+    auto pos = iocname.find_last_of(':');
+    epicsUInt16 port = 0;
+    if (pos) {
+        port = atoi(iocname.substr(pos + 1).c_str());
+    }
+    if (aToIPAddr(iocname.substr(0, pos).c_str(), port, &addr) != 0) {
+        throw std::runtime_error("Failed to resolve IOC address");
+    }
+
+    return addr;
+}
+
+std::string Directory::IocInfo::getIocName(struct sockaddr_in& addr)
+{
+    char buf[64];
+    if (inet_ntop(AF_INET, &addr.sin_addr, buf, sizeof(buf)) == nullptr) {
+        throw std::runtime_error("Failed to resolve IOC name");
+    }
+
+    std::ostringstream s;
+    s << buf << ":" << ntohl(addr.sin_port);
+    return s.str();
+}
 
 Directory::Directory()
 {
@@ -115,27 +150,24 @@ void Directory::purgeCache(long maxAge)
 
 void Directory::handleConnectionStatus(struct connection_handler_args args)
 {
-    std::string iocname = "<unknown>";
+    std::string iocname = "";
     // If PV has an alias, the original name might differ from ca_name()
     std::string pvname = ca_name(args.chid);
 
     if (args.op == CA_OP_CONN_UP) {
-        // Parse the IOC hostname and port, this only works when connection
-        // is being established, otherwise it returns '<disconnected>'
-        char buf[512] = "";
-        ca_get_host_name(args.chid, buf, sizeof(buf));
-        iocname = buf;
         bool keepConnected = false;
 
         // We'll need IOC addr info later in the locked section
         struct sockaddr_in addr;
-        addr.sin_family = AF_INET;
-        aToIPAddr(iocname.c_str(), 5064, &addr);
+        try {
+            addr = IocInfo::getIocAddr(args.chid);
+            iocname = IocInfo::getIocName(addr);
+        } catch (...) {}
 
         // Find or initialize IocInfo
         m_iocsMutex.lock();
         auto ioc = m_iocs[iocname];
-        if (!ioc) {
+        if (!iocname.empty() && !ioc) {
             ioc.reset(new IocInfo());
             ioc->status = Directory::IocInfo::Status::ACTIVE;
             ioc->addr = addr;
@@ -164,7 +196,7 @@ void Directory::handleConnectionStatus(struct connection_handler_args args)
         if (pvinfo) {
             pvinfo->mutex.lock();
             pvinfo->ioc = ioc;
-            pvname = pvinfo->name; // we may be using an alias, and could differ from ca_name()
+            pvname = pvinfo->name; // we may be using an alias, which could differ from ca_name()
             pvinfo->mutex.unlock();
         }
 
