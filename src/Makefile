@@ -11,6 +11,7 @@ PROD_LIBS += $(EPICS_BASE_HOST_LIBS)
 SRCS += main.cpp
 SRCS += requestHandler.cpp
 SRCS += directory.cpp
+SRCS += util.cpp
 
 PROD_HOST = cans
 

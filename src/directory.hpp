@@ -33,12 +33,6 @@ class Directory {
 
             /* Pretty name for logging purposes */
             std::string name;
-
-            /** Return sockaddr_in of the IOC serving chanId, or throw runtime_error */
-            static struct sockaddr_in getIocAddr(chid chanId);
-
-            /** Return IOC name based on the addr info */
-            static std::string getIocName(struct sockaddr_in &addr);
         };
 
         struct PvInfo {

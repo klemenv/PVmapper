@@ -1,42 +1,8 @@
 #include "directory.hpp"
 #include "logging.hpp"
+#include "util.hpp"
 
 #include <stdexcept>
-#include <sstream>
-
-struct sockaddr_in Directory::IocInfo::getIocAddr(chid chanId)
-{
-    struct sockaddr_in addr;
-
-    char buf[512] = "";
-    if (ca_get_host_name(chanId, buf, sizeof(buf)) != 0) {
-        throw std::runtime_error("Failed to resolve IOC address");
-    }
-
-    std::string iocname = buf;
-    auto pos = iocname.find_last_of(':');
-    epicsUInt16 port = 0;
-    if (pos) {
-        port = atoi(iocname.substr(pos + 1).c_str());
-    }
-    if (aToIPAddr(iocname.substr(0, pos).c_str(), port, &addr) != 0) {
-        throw std::runtime_error("Failed to resolve IOC address");
-    }
-
-    return addr;
-}
-
-std::string Directory::IocInfo::getIocName(struct sockaddr_in& addr)
-{
-    char buf[64];
-    if (inet_ntop(AF_INET, &addr.sin_addr, buf, sizeof(buf)) == nullptr) {
-        throw std::runtime_error("Failed to resolve IOC name");
-    }
-
-    std::ostringstream s;
-    s << buf << ":" << ntohl(addr.sin_port);
-    return s.str();
-}
 
 Directory::Directory()
 {
@@ -73,17 +39,16 @@ struct sockaddr_in Directory::findPv(const std::string& pvname, const std::strin
         pvinfo->mutex.unlock();
 
         if (!ioc) {
-            throw std::runtime_error("PV " + pvname + " not in directory, search in progress");
+            throw std::runtime_error(pvname + " not in cache, search in progress");
         }
 
         ioc->mutex.lock();
         bool iocActive = (ioc->status == IocInfo::Status::ACTIVE);
         struct sockaddr_in addr = ioc->addr;
-        auto hostname = ioc->name;
+        auto iocname = ioc->name;
         ioc->mutex.unlock();
 
         if (iocActive) {
-            LOG_INFO("%s searched for '%s', PV found on IOC %s\n", client.c_str(), pvname.c_str(), hostname.c_str());
             return addr;
         }
 
@@ -105,14 +70,14 @@ struct sockaddr_in Directory::findPv(const std::string& pvname, const std::strin
         &chanId
     );
     if (status != ECA_NORMAL) {
-        throw std::runtime_error("PV '" + pvname + "' not in directory, search failed");
+        throw std::runtime_error(pvname + " not in cache, search failed");
     }
 
     m_connectedPvsMutex.lock();
     m_connectedPvs[chanId] = pvinfo;
     m_connectedPvsMutex.unlock();
 
-    throw std::runtime_error("PV '" + pvname + "' not in directory, starting the search");
+    throw std::runtime_error(pvname + " not in cache, starting the search");
 }
 
 void Directory::purgeCache(long maxAge)
@@ -144,8 +109,19 @@ void Directory::purgeCache(long maxAge)
     unsigned cached = m_pvs.size();
     m_pvsMutex.unlock();
 
+    m_iocsMutex.lock();
+    for (auto it = m_iocs.cbegin(); it != m_iocs.cend(); ) {
+        if (it->second.use_count() == 1) {
+            it = m_iocs.erase(it);
+        } else {
+            it++;
+        }
+    }
+    unsigned iocs = m_iocs.size();
+    m_iocsMutex.unlock();
+
     unsigned purged = pvs.size();
-    LOG_DEBUG("Purged %u uninterested PVs, %u PVs remain in cache, searching for %u PVs", purged, cached, searching);
+    LOG_INFO("Purged %u uninterested PVs, %u PVs remain in cache, searching for %u PVs, %u IOCs", purged, cached, searching, iocs);
 }
 
 void Directory::handleConnectionStatus(struct connection_handler_args args)
@@ -156,25 +132,27 @@ void Directory::handleConnectionStatus(struct connection_handler_args args)
 
     if (args.op == CA_OP_CONN_UP) {
         bool keepConnected = false;
+        std::string iocIP = "";
 
         // We'll need IOC addr info later in the locked section
         struct sockaddr_in addr;
         try {
-            addr = IocInfo::getIocAddr(args.chid);
-            iocname = IocInfo::getIocName(addr);
+            addr = Util::chIdToAddr(args.chid);
+            iocIP = Util::addrToIP(addr);
+            iocname = Util::addrToHostName(addr);
         } catch (...) {}
 
         // Find or initialize IocInfo
         m_iocsMutex.lock();
-        auto ioc = m_iocs[iocname];
-        if (!iocname.empty() && !ioc) {
+        auto ioc = m_iocs[iocIP];
+        if (!iocIP.empty() && !ioc) {
             ioc.reset(new IocInfo());
             ioc->status = Directory::IocInfo::Status::ACTIVE;
             ioc->addr = addr;
             ioc->name = iocname;
             // Keep the PV connected so that we get notified if IOC shuts down
             ioc->heartbeatId = args.chid;
-            m_iocs[iocname] = ioc;
+            m_iocs[iocIP] = ioc;
             keepConnected = true;
         } else {
             // We only need one PV from same IOC to stay connected
@@ -200,7 +178,7 @@ void Directory::handleConnectionStatus(struct connection_handler_args args)
             pvinfo->mutex.unlock();
         }
 
-        LOG_DEBUG("PV '%s' connected to IOC '%s', storing in cache\n", pvname.c_str(), iocname.c_str());
+        LOG_DEBUG("%s found on IOC %s, storing in cache\n", pvname.c_str(), iocIP.c_str());
 
     } else if (args.op == CA_OP_CONN_DOWN) {
         // This should only trigger for the PVs monitoring the IOC status.
@@ -223,17 +201,6 @@ void Directory::handleConnectionStatus(struct connection_handler_args args)
             ioc->status = Directory::IocInfo::Status::UNAVAILABLE;
             ioc->heartbeatId = 0;
             ioc->mutex.unlock();
-
-            // Forget this IOC when any of its PVs disconnects.
-            // This assumes that IOC doesn't dynamically add/remove
-            // PVs, which is the case for standard EPICS IOC loading
-            // PVs with dbLoadRecords(), but not necessarily for CA gateway
-            // or pcaspy IOC.
-            // Worst case scenario, we'll have to search for some PVs
-            // again.
-            m_iocsMutex.lock();
-            m_iocs.erase(iocname);
-            m_iocsMutex.unlock();
         }
 
         // Remove from active PVs, if any
@@ -245,6 +212,6 @@ void Directory::handleConnectionStatus(struct connection_handler_args args)
         // online, so just disconnect and forget about it
         ca_clear_channel(args.chid);
 
-        LOG_DEBUG("PV '%s' disconnected, IOC '%s' probably shut down, removed from cache\n", pvname.c_str(), iocname.c_str());
+        LOG_DEBUG("%s disconnected, IOC %s probably shut down, removed from cache\n", pvname.c_str(), iocname.c_str());
     }
 }
