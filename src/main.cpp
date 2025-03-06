@@ -59,7 +59,6 @@ int main(int argc, char** argv)
 	AccessControl accessControl;
 	Directory directory;
 	long purgeTime = 600;
-	errlogSevEnum loglevel = errlogMajor;
 
 	int c;
 	while ((c = getopt(argc, argv, "hc:vp:l:")) != -1) {
@@ -78,10 +77,10 @@ int main(int argc, char** argv)
 		case 'l':
 			// log level
 			switch (std::atoi(optarg)) {
-				case 0:  loglevel = errlogInfo;  break;
-				case 1:  loglevel = errlogMinor; break;
-				case 2:  loglevel = errlogMajor; break;
-				default: loglevel = errlogFatal; break;
+				case 0:  Log::init(Log::Level::Debug);   break;
+				case 1:  Log::init(Log::Level::Verbose); break;
+				case 2:  Log::init(Log::Level::Info);    break;
+				default: Log::init(Log::Level::Error);   break;
 			}
 			break;
 		case 'h':
@@ -92,7 +91,6 @@ int main(int argc, char** argv)
 		}
 	}
 
-	errlogSetSevToLog(loglevel);
 	RequestHandler requests(accessControl, directory);
 
 	epicsTime lastPurge = epicsTime::getCurrent();

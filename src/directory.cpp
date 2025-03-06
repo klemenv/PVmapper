@@ -85,7 +85,7 @@ void Directory::purgeCache(long maxAge)
     std::vector<std::string> pvs;
     unsigned searching = 0;
 
-    LOG_DEBUG("Purging PVs that have been disconnected for more than %ld seconds\n", maxAge);
+    LOG_DEBUG("Purging PVs that have been disconnected for more than ", maxAge, " seconds");
 
     // Remove non-existing PVs that no-one has searched for in a while
     m_connectedPvsMutex.lock();
@@ -121,7 +121,7 @@ void Directory::purgeCache(long maxAge)
     m_iocsMutex.unlock();
 
     unsigned purged = pvs.size();
-    LOG_INFO("Purged %u uninterested PVs, %u PVs remain in cache, searching for %u PVs, %u IOCs", purged, cached, searching, iocs);
+    LOG_INFO("Purged ", purged, " uninterested PVs, ", cached, " PVs remain in cache, searching for ", searching, " PVs, ", iocs, " IOCs");
 }
 
 void Directory::handleConnectionStatus(struct connection_handler_args args)
@@ -150,9 +150,8 @@ void Directory::handleConnectionStatus(struct connection_handler_args args)
             ioc->status = Directory::IocInfo::Status::ACTIVE;
             ioc->addr = addr;
             ioc->name = iocname;
-            // Keep the PV connected so that we get notified if IOC shuts down
-            ioc->heartbeatId = args.chid;
             m_iocs[iocIP] = ioc;
+            // Keep the PV connected so that we get notified if IOC shuts down
             keepConnected = true;
         } else {
             // We only need one PV from same IOC to stay connected
@@ -178,7 +177,7 @@ void Directory::handleConnectionStatus(struct connection_handler_args args)
             pvinfo->mutex.unlock();
         }
 
-        LOG_DEBUG("%s found on IOC %s, storing in cache\n", pvname.c_str(), iocIP.c_str());
+        LOG_VERBOSE("PV ", pvname, " found on IOC ", iocname, ", storing in cache");
 
     } else if (args.op == CA_OP_CONN_DOWN) {
         // This should only trigger for the PVs monitoring the IOC status.
@@ -199,7 +198,6 @@ void Directory::handleConnectionStatus(struct connection_handler_args args)
             ioc->mutex.lock();
             iocname = ioc->name;
             ioc->status = Directory::IocInfo::Status::UNAVAILABLE;
-            ioc->heartbeatId = 0;
             ioc->mutex.unlock();
         }
 
@@ -212,6 +210,10 @@ void Directory::handleConnectionStatus(struct connection_handler_args args)
         // online, so just disconnect and forget about it
         ca_clear_channel(args.chid);
 
-        LOG_DEBUG("%s disconnected, IOC %s probably shut down, removed from cache\n", pvname.c_str(), iocname.c_str());
+        if (iocname.empty()) {
+            LOG_VERBOSE("PV ", pvname, " disconnected, removed from cache");
+        } else {
+            LOG_VERBOSE("PV ", pvname, " disconnected, IOC ", iocname, " probably shut down, removed from cache");
+        }
     }
 }

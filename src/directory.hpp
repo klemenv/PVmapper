@@ -25,9 +25,6 @@ class Directory {
             /* IOC address to be returned to clients */
             struct sockaddr_in addr;
 
-            /* Channel used to track when IOC goes down, 0 if IOC is unavailable */
-            chid heartbeatId = 0;
-
             /* Mutex to protect access to any members of this struct */
             epicsMutex mutex;
 

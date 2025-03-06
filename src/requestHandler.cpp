@@ -13,7 +13,7 @@ pvExistReturn RequestHandler::pvExistTest(const casCtx& /* ctx */, const caNetAd
     std::string clientIP = Util::addrToHostName(client.getSockIP());
     std::string pvname(pvname_);
 
-    LOG_VERBOSE("%s searching for PV %s\n", clientIP.c_str(), pvname.c_str());
+    LOG_DEBUG("Client ", clientIP, " searching for PV ", pvname);
 
     // Remove the optional .FIELD from PV names
     auto field = pvname.find_last_of('.');
@@ -28,7 +28,7 @@ pvExistReturn RequestHandler::pvExistTest(const casCtx& /* ctx */, const caNetAd
             if (rule.action == AccessControl::ALLOW) {
                 break;
             } else if (rule.action == AccessControl::DENY) {
-                LOG_DEBUG("Rejected request from %s searching for PV %s due to '%s' rule\n", clientIP.c_str(), pvname.c_str(), rule.text.c_str());
+                LOG_VERBOSE("Rejected request from ", clientIP, " searching for PV ", pvname, " due to '", rule.text, "' rule");
                 return pverDoesNotExistHere;
             }
         }
@@ -44,7 +44,7 @@ pvExistReturn RequestHandler::pvExistTest(const casCtx& /* ctx */, const caNetAd
             if (rule.action == AccessControl::ALLOW) {
                 break;
             } else if (rule.action == AccessControl::DENY) {
-                LOG_DEBUG("Rejected request from '%s' searching for PV '%s' due to '%s' rule\n", clientIP.c_str(), pvname.c_str(), rule.text.c_str());
+                LOG_VERBOSE("Rejected request from ", clientIP, " searching for PV ", pvname, " due to '", rule.text, "' rule");
                 return pverDoesNotExistHere;
             }
         }
@@ -56,7 +56,7 @@ pvExistReturn RequestHandler::pvExistTest(const casCtx& /* ctx */, const caNetAd
     try {
         auto iocAddr = m_directory.findPv(pvname, clientIP);
         auto iocname = Util::addrToHostName(iocAddr);
-        LOG_INFO("%s searched for %s, PV found on IOC %s\n", clientIP.c_str(), pvname.c_str(), iocname.c_str());
+        LOG_INFO("Client ", clientIP, " searched for ", pvname, ", PV found on IOC ", iocname);
         return pvExistReturn(caNetAddr(iocAddr));
     } catch (std::runtime_error& e) {
         LOG_ERROR("%s\n", e.what());
