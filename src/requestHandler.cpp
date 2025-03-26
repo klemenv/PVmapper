@@ -59,7 +59,7 @@ pvExistReturn RequestHandler::pvExistTest(const casCtx& /* ctx */, const caNetAd
         LOG_INFO("Client ", clientIP, " searched for ", pvname, ", PV found on IOC ", iocname);
         return pvExistReturn(caNetAddr(iocAddr));
     } catch (std::runtime_error& e) {
-        LOG_ERROR("%s\n", e.what());
+        LOG_ERROR(e.what());
         return pverDoesNotExistHere;
     }
 }

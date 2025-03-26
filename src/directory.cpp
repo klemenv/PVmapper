@@ -70,6 +70,10 @@ struct sockaddr_in Directory::findPv(const std::string& pvname, const std::strin
         &chanId
     );
     if (status != ECA_NORMAL) {
+        m_pvsMutex.lock();
+        m_pvs.erase(pvname);
+        m_pvsMutex.unlock();
+
         throw std::runtime_error(pvname + " not in cache, search failed");
     }
 
@@ -177,7 +181,11 @@ void Directory::handleConnectionStatus(struct connection_handler_args args)
             pvinfo->mutex.unlock();
         }
 
-        LOG_VERBOSE("PV ", pvname, " found on IOC ", iocname, ", storing in cache");
+        if (keepConnected) {
+            LOG_VERBOSE("PV ", pvname, " found on IOC ", iocname, ", storing in cache and keep connected");
+        } else {
+            LOG_VERBOSE("PV ", pvname, " found on IOC ", iocname, ", storing in cache");
+        }
 
     } else if (args.op == CA_OP_CONN_DOWN) {
         // This should only trigger for the PVs monitoring the IOC status.
@@ -199,6 +207,16 @@ void Directory::handleConnectionStatus(struct connection_handler_args args)
             iocname = ioc->name;
             ioc->status = Directory::IocInfo::Status::UNAVAILABLE;
             ioc->mutex.unlock();
+
+            // Prevent future PV searches to reuse this entry
+            m_iocsMutex.lock();
+            for (auto it = m_iocs.cbegin(); it != m_iocs.cend(); it++) {
+                if (it->second->name == iocname) {
+                    m_iocs.erase(it);
+                    break;
+                }
+            }
+            m_iocsMutex.unlock();
         }
 
         // Remove from active PVs, if any

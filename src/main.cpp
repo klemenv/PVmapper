@@ -77,9 +77,9 @@ int main(int argc, char** argv)
 		case 'l':
 			// log level
 			switch (std::atoi(optarg)) {
-				case 0:  Log::init(Log::Level::Debug);   break;
-				case 1:  Log::init(Log::Level::Verbose); break;
-				case 2:  Log::init(Log::Level::Info);    break;
+				case 3:  Log::init(Log::Level::Debug);   break;
+				case 2:  Log::init(Log::Level::Verbose); break;
+				case 1:  Log::init(Log::Level::Info);    break;
 				default: Log::init(Log::Level::Error);   break;
 			}
 			break;
