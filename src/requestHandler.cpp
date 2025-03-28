@@ -56,10 +56,15 @@ pvExistReturn RequestHandler::pvExistTest(const casCtx& /* ctx */, const caNetAd
     try {
         auto iocAddr = m_directory.findPv(pvname, clientIP);
         auto iocname = Util::addrToHostName(iocAddr);
-        LOG_INFO("Client ", clientIP, " searched for ", pvname, ", PV found on IOC ", iocname);
+        LOG_INFO("Client ", clientIP, " searched for PV ", pvname, ", found on IOC ", iocname);
         return pvExistReturn(caNetAddr(iocAddr));
-    } catch (std::runtime_error& e) {
+    } catch (Directory::SearchInProgress& e) {
+        LOG_VERBOSE(e.what());
+        return pverDoesNotExistHere;
+    } catch (Directory::SearchError& e) {
         LOG_ERROR(e.what());
+        return pverDoesNotExistHere;
+    } catch (...) {
         return pverDoesNotExistHere;
     }
 }

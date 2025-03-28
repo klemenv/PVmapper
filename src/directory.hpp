@@ -52,15 +52,32 @@ class Directory {
 
         std::map<std::string, std::shared_ptr<IocInfo>> m_iocs;
         std::map<std::string, std::shared_ptr<PvInfo>> m_pvs;
-        std::map<chid, std::shared_ptr<PvInfo>> m_connectedPvs;
+        std::map<chid, std::string> m_chan2pvname;
 
         epicsMutex m_iocsMutex;
-        epicsMutex m_pvsMutex;
-        epicsMutex m_connectedPvsMutex;
+        epicsMutex m_pvsMutex;  // guards m_pvs ans m_chan2pvname
 
         void handleConnectionStatus(struct connection_handler_args args);
 
+        std::shared_ptr<PvInfo> find(const std::string& pvname);
+        std::shared_ptr<PvInfo> find(chid caChanId);
+        void insert(const std::string &pvname, chid caChanId, const std::shared_ptr<PvInfo>& pvinfo);
+        void erase(const std::string& pvname);
+        void erase(chid caChanId);
+        std::vector<std::string> getPvNames();
+
     public:
+        class SearchError : public std::runtime_error
+        {
+            public:
+                SearchError(const std::string& what) : std::runtime_error(what) {}
+        };
+        class SearchInProgress : public std::runtime_error
+        {
+            public:
+                SearchInProgress(const std::string& what) : std::runtime_error(what) {}
+        };
+
         Directory();
         ~Directory();
 
