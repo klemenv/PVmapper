@@ -81,6 +81,7 @@ struct sockaddr_in Directory::findPv(const std::string& pvname, const std::strin
     if (pvinfo) {
         struct sockaddr_in addr;
         bool iocActive = false;
+        bool searchInProgress = false;
 
         // We found the PV in cache, let's check if the IOC is alive
         pvinfo->mutex.lock();
@@ -95,14 +96,16 @@ struct sockaddr_in Directory::findPv(const std::string& pvname, const std::strin
                 // IOC has shut down, new IOC will be created when channel reconnects
                 pvinfo->ioc.reset();
             }
+        } else {
+            searchInProgress = true;
         }
         pvinfo->mutex.unlock();
 
         if (iocActive) {
             return addr;
+        } else if (searchInProgress) {
+            throw SearchInProgress(pvname + " not in cache, search in progress");
         }
-
-        throw SearchInProgress(pvname + " not in cache, search in progress");
     }
 
     pvinfo.reset(new PvInfo());
