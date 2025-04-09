@@ -9,7 +9,7 @@ namespace Log {
         Info,
         Error
     };
-    void init(Level level);
+    void init(const std::string &id, const std::string &syslogFacility, Level lvl);
 
     template<typename... Args>
     void write(Level lvl, const Args&... args)
