@@ -39,7 +39,7 @@ namespace Log {
         } else if (syslogFacility == "DAEMON") {
             facility = LOG_DAEMON;
         }
-        static char ident[80];
+        static char ident[80] = {0};
         id.copy(ident, sizeof(ident - 1));
         openlog(ident, LOG_CONS, facility);
 
