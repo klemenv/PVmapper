@@ -14,12 +14,12 @@ SRCS += proto_ca.cpp
 SRCS += connection.cpp
 SRCS += searcher.cpp
 SRCS += listener.cpp
+SRCS += iocguard.cpp
 SRCS += directory.cpp
+SRCS += connmgr.cpp
 SRCS += main.cpp
 #SRCS += requestHandler.cpp
 SRCS += util.cpp
-#SRCS += proto_ca.cpp
-#SRCS += connmgr.cpp
 
 PROD_HOST = cans
 

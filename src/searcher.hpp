@@ -3,8 +3,6 @@
 #include "connection.hpp"
 #include "proto.hpp"
 
-#include <arpa/inet.h>
-
 #include <functional>
 #include <map>
 #include <memory>
@@ -15,8 +13,6 @@ class Searcher : public Connection {
 
     private:
         uint32_t m_chanId = 0;
-        int m_sock = -1;
-        struct sockaddr_in m_addr;
         std::shared_ptr<AbstractProtocol> m_protocol;
         std::map<std::string, uint32_t> m_searchedPvs;
         FoundPvCb m_foundPvCb;

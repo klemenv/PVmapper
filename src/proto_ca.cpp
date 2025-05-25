@@ -2,8 +2,9 @@
 
 #include <arpa/inet.h>
 
-static uint16_t const CMD_VERSION = 0x0;
-static uint16_t const CMD_SEARCH  = 0x6;
+static uint16_t const CMD_VERSION =  0x0;
+static uint16_t const CMD_SEARCH  =  0x6;
+static uint16_t const CMD_ECHO    = 0x17;
 
 struct Header {
     uint16_t command;
@@ -13,6 +14,24 @@ struct Header {
     uint32_t param1;
     uint32_t param2;
 };
+
+std::vector<unsigned char> ChannelAccess::createEchoRequest(bool includeVersion)
+{
+    size_t n = (includeVersion ? 2 : 1);
+    std::vector<unsigned char> buffer(n * sizeof(Header), 0);
+    auto hdr = reinterpret_cast<Header *>(buffer.data());
+    if (includeVersion == true) {
+        hdr->command = ::htons(CMD_VERSION);
+        hdr->payloadLen = ::htons(0x0);
+        hdr->dataType = ::htons(0x1);
+        hdr->dataCount = ::htons(13);
+        hdr->param1 = ::htons(0x0);
+        hdr->param2 = ::htons(0x0);
+        hdr++;
+    }
+    hdr->command = ::htons(CMD_ECHO);
+    return buffer;
+}
 
 std::vector<unsigned char> ChannelAccess::createSearchRequest(const std::vector<std::pair<uint32_t, std::string>>& pvs) {
     std::vector<unsigned char> buffer(sizeof(Header));

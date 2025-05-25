@@ -3,8 +3,6 @@
 #include "proto.hpp"
 #include "connection.hpp"
 
-#include <arpa/inet.h>
-
 #include <memory>
 #include <regex>
 #include <string>
@@ -36,8 +34,6 @@ class Listener : public Connection {
         typedef std::vector<unsigned char>(*SearchPvCb)(const std::string& /*pvname*/, const std::string& /*client IP*/, uint16_t /*client port*/);
 
     private:
-        int m_sock = -1;
-        struct sockaddr_in m_addr;
         const AccessControl& m_accessControl;
         std::shared_ptr<AbstractProtocol> m_protocol;
         SearchPvCb m_searchPvCb;
