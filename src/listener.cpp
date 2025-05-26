@@ -3,7 +3,7 @@
 
 #include <sys/socket.h>
 
-Listener::Listener(const std::string& ip, uint16_t port, const AccessControl& accessControl, const std::shared_ptr<AbstractProtocol>& protocol, SearchPvCb cb)
+Listener::Listener(const std::string& ip, uint16_t port, const AccessControl& accessControl, const std::shared_ptr<AbstractProtocol>& protocol, SearchPvCb& cb)
     : m_accessControl(accessControl)
     , m_protocol(protocol)
     , m_searchPvCb(cb)

@@ -1,6 +1,5 @@
 #include "listener.hpp"
 #include "logging.hpp"
-//#include "requestHandler.hpp"
 #include "directory.hpp"
 #include "proto_ca.hpp"
 #include "searcher.hpp"
@@ -110,46 +109,69 @@ int main(int argc, char** argv)
 {
     AccessControl accessControl;
     Directory directory;
+    std::vector<std::shared_ptr<Searcher>> searchersCA;
+    std::map<std::pair<std::string, uint16_t>, std::shared_ptr<IocGuard>> iocs;
 
     if (argc != 2) {
         usage(argv[0]);
         return 1;
     }
-
     auto config = Config(argv[1]);
 
     std::shared_ptr<ChannelAccess> caProto(new ChannelAccess);
     try {
+        IocGuard::DisconnectCb iocDisconnectCb = [&directory, &iocs](auto iocIP, auto iocPort) {
+            // TODO: directory.iocDisconnected()
+            auto it = iocs.find(std::make_pair(iocIP, iocPort));
+            if (it != iocs.end()) {
+                iocs.erase(it);
+                ConnectionsManager::remove(it->second);
+            }
+        };
 
+        Searcher::FoundPvCb foundPvCaCb = [&directory, &iocDisconnectCb, &caProto, &iocs](auto pvname, auto iocIP, auto iocPort, auto response) {
+            printf("foundPvCaCb(%s, %s, %u)\n", pvname.c_str(), iocIP.c_str(), iocPort);
+            try {
+                // Try to find existing IOC, .at() will throw if not found
+                auto iocGuard = iocs.at(std::make_pair(iocIP, iocPort));
+                directory.foundPv(pvname, iocGuard, response);
+                return;
+            } catch (...) {}
+            try {
+                // Need to create a new IocGuard
+                auto iocGuard = std::shared_ptr<IocGuard>(new IocGuard(iocIP, iocPort, caProto, iocDisconnectCb));
+                iocs[std::make_pair(iocIP, iocPort)] = iocGuard;
+                ConnectionsManager::add(iocGuard);
+                directory.foundPv(pvname, iocGuard, response);
+            } catch (...) {}
+        };
         auto searcher = std::shared_ptr<Searcher>(
             new Searcher("192.168.1.255",
                          5064,
                          caProto,
-                         [](auto pvname, auto iocIp, auto iocPort, auto pkt) {
-            printf("Found %s on %s:%u\n", pvname.c_str(), iocIp.c_str(), iocPort);
-//            ioc1.reset(new Monitor(iocIp, iocPort, caProto, [](auto iocIp, auto iocPort) {} ));
-        }));
+                         foundPvCaCb)
+        );
         ConnectionsManager::add(searcher);
+        searchersCA.emplace_back(searcher);
 
+        Listener::SearchPvCb searchPvCaCb = [&directory, &searchersCA](auto pvname, auto clientIP, auto clientPort) -> std::vector<unsigned char> {
+            printf("searchPvCaCb(%s, %s, %u)\n", pvname.c_str(), clientIP.c_str(), clientPort);
+            auto response = directory.findPv(pvname);
+            if (response.empty()) {
+                for (auto& searcher: searchersCA) {
+                    searcher->searchPVs({pvname});
+                }
+            }
+            return response;
+        };
         auto listener = std::shared_ptr<Listener>(
             new Listener(config.listenAddr,
                          config.listenPort,
                          config.accessControl,
                          caProto,
-                         [](auto pvname, auto clientIp, auto clientPort) -> std::vector<unsigned char> {
-            printf("%s:%u is searching for %s\n", clientIp.c_str(), clientPort, pvname.c_str());
-            return std::vector<unsigned char>();
-        }));
+                         searchPvCaCb)
+        );
         ConnectionsManager::add(listener);
-
-        auto iocguard = std::shared_ptr<IocGuard>(
-            new IocGuard("192.168.1.48",
-                        5064,
-                        caProto,
-                        [](auto& iocIp, auto iocPort) {
-            printf("IOC %s:%u disconnected\n", iocIp.c_str(), iocPort);
-        }));
-        ConnectionsManager::add(iocguard);
 
     } catch (SocketException& e) {
         fprintf(stderr, "%s\n", e.what());

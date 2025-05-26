@@ -3,6 +3,7 @@
 #include "proto.hpp"
 #include "connection.hpp"
 
+#include <functional>
 #include <memory>
 #include <regex>
 #include <string>
@@ -31,7 +32,8 @@ class AccessControl {
 
 class Listener : public Connection {
     public:
-        typedef std::vector<unsigned char>(*SearchPvCb)(const std::string& /*pvname*/, const std::string& /*client IP*/, uint16_t /*client port*/);
+        //typedef std::vector<unsigned char>(*SearchPvCb)(const std::string& /*pvname*/, const std::string& /*client IP*/, uint16_t /*client port*/);
+        typedef std::function<std::vector<unsigned char> (const std::string & /*pvname*/, const std::string & /*client IP*/, uint16_t /*client port*/)> SearchPvCb;
 
     private:
         const AccessControl& m_accessControl;
@@ -42,6 +44,6 @@ class Listener : public Connection {
 
     public:
    
-        Listener(const std::string& ip, uint16_t port, const AccessControl& accessControl, const std::shared_ptr<AbstractProtocol>& protocol, SearchPvCb cb);
+        Listener(const std::string& ip, uint16_t port, const AccessControl& accessControl, const std::shared_ptr<AbstractProtocol>& protocol, SearchPvCb& cb);
         void processIncoming();
 };

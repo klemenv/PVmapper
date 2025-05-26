@@ -3,6 +3,7 @@
 #include "util.hpp"
 
 #include <stdexcept>
+#include <set>
 
 Directory::Directory()
 {
@@ -72,6 +73,31 @@ std::vector<std::string> Directory::getPvNames()
     return pvnames;
 }
 
+std::vector<unsigned char> Directory::findPv(const std::string& pvname)
+{
+    try {
+        auto pv = m_connectedPVs.at(pvname);
+        if (pv.ioc && pv.ioc->isConnected()) {
+            return pv.response;
+        }
+        // The IOC must got disconnected
+        m_connectedPVs.erase(pvname);
+    } catch (std::out_of_range&) {}
+    
+    auto pv = m_searchingPVs[pvname];
+    pv.lastSearched = std::chrono::steady_clock::now();
+    return std::vector<unsigned char>();
+}
+
+void Directory::foundPv(const std::string& pvname, const std::shared_ptr<IocGuard>& ioc, const std::vector<unsigned char>& response)
+{
+    auto& pv = m_connectedPVs[pvname];
+    pv.ioc = ioc;
+    pv.response = response;
+
+    m_searchingPVs.erase(pvname);
+}
+
 struct sockaddr_in Directory::findPv(const std::string& pvname, const std::string& client)
 {
     m_pvsMutex.lock();
@@ -136,62 +162,29 @@ struct sockaddr_in Directory::findPv(const std::string& pvname, const std::strin
 
 void Directory::purgeCache(long maxAge)
 {
-    std::vector<std::string> pvs;
-    unsigned searching = 0;
-    unsigned purged = 0;
-
     LOG_DEBUG("Purging PVs that have been disconnected for more than ", maxAge, " seconds");
 
-    m_pvsMutex.lock();
-    auto pvnames = getPvNames();
-    m_pvsMutex.unlock();
-
-    for (auto pvname: pvnames) {
-        m_pvsMutex.lock();
-        auto pvinfo = find(pvname);
-        m_pvsMutex.unlock();
-
-        if (pvinfo) {
-            pvinfo->mutex.lock();
-            bool expired = (pvinfo->lastSearched + maxAge) < epicsTime::getCurrent();
-            auto ioc = pvinfo->ioc;
-            pvinfo->mutex.unlock();
-
-            bool iocActive = false;
-            if (ioc) {
-                // This is the only place where we keep pvinfo and ioc locked at the same time
-                ioc->mutex.lock();
-                iocActive = (pvinfo->ioc->status == IocInfo::Status::ACTIVE);
-                ioc->mutex.unlock();
-            }
-
-            if (!iocActive) {
-                if (expired) {
-                    m_pvsMutex.lock();
-                    m_pvs.erase(pvname);
-                    m_pvsMutex.unlock();
-
-                    purged++;
-                } else {
-                    searching++;
-                }
-            }
+    unsigned purged = 0;
+    for (auto it = m_searchingPVs.begin(); it != m_searchingPVs.end();) {
+        auto diff = (std::chrono::steady_clock::now() - it->second.lastSearched);
+        auto duration = std::chrono::duration_cast<std::chrono::seconds>(diff).count();
+        if (duration > maxAge) {
+            it = m_searchingPVs.erase(it);
+            purged++;
         }
     }
-    unsigned cached = pvnames.size() - purged;
 
-    m_iocsMutex.lock();
-    for (auto it = m_iocs.cbegin(); it != m_iocs.cend(); ) {
-        if (it->second.use_count() == 1) {
-            it = m_iocs.erase(it);
-        } else {
-            it++;
+    auto connected = m_connectedPVs.size();
+    auto searching = m_searchingPVs.size();
+    std::set<int> iocs;
+    for (const auto& [_, pv] : m_connectedPVs) {
+        if (pv.ioc) {
+            iocs.emplace(pv.ioc->getSocket());
         }
     }
-    unsigned iocs = m_iocs.size();
-    m_iocsMutex.unlock();
+    auto niocs = iocs.size();
 
-    LOG_INFO("Purged ", purged, " uninterested PVs, ", cached, " PVs remain in cache, searching for ", searching, " PVs, ", iocs, " IOCs");
+    LOG_INFO("Purged ", purged, " uninterested PVs, ", connected, " PVs remain in cache, searching for ", searching, " PVs, ", niocs, " IOCs");
 }
 
 void Directory::handleConnectionStatus(struct connection_handler_args args)

@@ -1,7 +1,7 @@
 #include "logging.hpp"
 #include "searcher.hpp"
 
-Searcher::Searcher(const std::string& ip, uint16_t port, const std::shared_ptr<AbstractProtocol>& protocol, FoundPvCb foundPvCb)
+Searcher::Searcher(const std::string& ip, uint16_t port, const std::shared_ptr<AbstractProtocol>& protocol, FoundPvCb& foundPvCb)
     : m_protocol(protocol)
     , m_foundPvCb(foundPvCb)
 {

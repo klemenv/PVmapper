@@ -4,11 +4,12 @@
 #include "proto.hpp"
 
 #include <chrono>
+#include <functional>
 #include <memory>
 
 class IocGuard : public Connection {
     public:
-        typedef void(*DisconnectCb)(const std::string&, uint16_t);
+        typedef std::function<void(const std::string& iocIP, uint16_t iocPort)> DisconnectCb;
     private:
         std::shared_ptr<AbstractProtocol> m_protocol;
         DisconnectCb m_disconnectCb;
@@ -20,7 +21,7 @@ class IocGuard : public Connection {
 
         void sendHeartBeat();
     public:
-        IocGuard(const std::string& iocIp, uint16_t iocPort, const std::shared_ptr<AbstractProtocol>& protocol, DisconnectCb disconnectCb);
+        IocGuard(const std::string& iocIp, uint16_t iocPort, const std::shared_ptr<AbstractProtocol>& protocol, DisconnectCb& disconnectCb);
         ~IocGuard();
         void processIncoming();
         void processOutgoing();

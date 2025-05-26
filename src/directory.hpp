@@ -1,5 +1,7 @@
 #pragma once
 
+#include "iocguard.hpp"
+
 #include <cadef.h>
 #include <casdef.h>
 #include <epicsMutex.h>
@@ -48,11 +50,25 @@ class Directory {
 
             /* Mutex to protect access to any members of this struct */
             epicsMutex mutex;
+
+            std::vector<unsigned char> response;
+        };
+
+        struct ConnectedPV {
+            std::shared_ptr<IocGuard> ioc;
+            std::vector<unsigned char> response;
+        };
+
+        struct SearchingPV {
+            std::chrono::steady_clock::time_point lastSearched = std::chrono::steady_clock::time_point::min();
         };
 
         std::map<std::string, std::shared_ptr<IocInfo>> m_iocs;
         std::map<std::string, std::shared_ptr<PvInfo>> m_pvs;
         std::map<chid, std::string> m_chan2pvname;
+
+        std::map<std::string, ConnectedPV> m_connectedPVs;
+        std::map<std::string, SearchingPV> m_searchingPVs;
 
         epicsMutex m_iocsMutex;
         epicsMutex m_pvsMutex;  // guards m_pvs ans m_chan2pvname
@@ -82,6 +98,9 @@ class Directory {
         ~Directory();
 
         struct sockaddr_in findPv(const std::string& pvname, const std::string& client);
+
+        std::vector<unsigned char> findPv(const std::string &pvname);
+        void foundPv(const std::string& pvname, const std::shared_ptr<IocGuard>& ioc, const std::vector<unsigned char>& response);
 
         /** Remove PVs that noone has searched for in a while to optimize performance */
         void purgeCache(long maxAge=600);

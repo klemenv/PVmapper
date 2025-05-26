@@ -4,7 +4,7 @@
 #include <fcntl.h>
 #include <unistd.h>
 
-IocGuard::IocGuard(const std::string& iocIp, uint16_t iocPort, const std::shared_ptr<AbstractProtocol>& protocol, DisconnectCb disconnectCb)
+IocGuard::IocGuard(const std::string& iocIp, uint16_t iocPort, const std::shared_ptr<AbstractProtocol>& protocol, DisconnectCb& disconnectCb)
     : m_protocol(protocol)
     , m_disconnectCb(disconnectCb)
     , m_ip(iocIp)
@@ -71,7 +71,7 @@ void IocGuard::processIncoming()
 
 void IocGuard::processOutgoing()
 {
-    auto diff = std::chrono::steady_clock::now() - m_lastRequest;
+    auto diff = (std::chrono::steady_clock::now() - m_lastRequest);
     auto duration = std::chrono::duration_cast<std::chrono::seconds>(diff).count();
     if (duration > m_heartbeatInterval) {
         sendHeartBeat();
