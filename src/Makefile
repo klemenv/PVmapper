@@ -10,6 +10,7 @@ PROD_LIBS += $(EPICS_BASE_HOST_LIBS)
 #PROD_INCLUDES += -I$(EPICS_BASE)/include
 
 SRCS += logging.cpp
+SRCS += config.cpp
 SRCS += proto_ca.cpp
 SRCS += connection.cpp
 SRCS += searcher.cpp

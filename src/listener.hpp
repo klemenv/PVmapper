@@ -1,5 +1,6 @@
 #pragma once
 
+#include "config.hpp"
 #include "proto.hpp"
 #include "connection.hpp"
 
@@ -9,26 +10,7 @@
 #include <string>
 #include <vector>
 
-class AccessControl {
-    public:
-        enum Action
-        {
-            ALLOW,
-            DENY
-        };
 
-        struct Entry {
-            Action action;
-            std::regex regex;
-            std::string text;
-        };
-
-        std::vector<Entry> pvs;
-        std::vector<Entry> clients;
-
-        AccessControl() = default;
-        AccessControl(const AccessControl &copy) = default;
-};
 
 class Listener : public Connection {
     public:
