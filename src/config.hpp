@@ -36,7 +36,8 @@ class Config {
         std::string             syslog_facility; // leave empty to log to file
         std::string             syslog_id = "PVmapper";
         unsigned                purge_delay = 600;
-        std::vector<Address>    listen_addresses;
+        std::vector<Address>    ca_listen_addresses;
+        std::vector<Address>    ca_search_addresses;
 
         void parseFile(const std::string &path);
 };

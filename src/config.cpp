@@ -12,7 +12,8 @@ void Config::parseFile(const std::string& path)
     std::regex reLogFacility ("^[ \t]*SYSLOG_FACILITY[= \t]([^# \t]*)[ \t]*(#.*)?$");
     std::regex reLogId       ("^[ \t]*SYSLOG_ID[= \t]([^# \t]*)[ \t]*(#.*)?$");
     std::regex rePurgeDelay  ("^[ \t]*PURGE_DELAY[= \t]+([0-9]+)[ \t]*(#.*)?$");
-    std::regex reListenAddr  ("^[ \t]*LISTEN_ADDRESS[= \t]+([0-9]{1,3}(\\.[0-9]{1,3}){3})(:([0-9]{1,5}))?");
+    std::regex reCaListenAddr("^[ \t]*CA_LISTEN_ADDRESS[= \t]+([0-9]{1,3}(\\.[0-9]{1,3}){3})(:([0-9]{1,5}))?");
+    std::regex reCaSearchAddr("^[ \t]*CA_SEARCH_ADDRESS[= \t]+([0-9]{1,3}(\\.[0-9]{1,3}){3})(:([0-9]{1,5}))?");
 
     auto toLower = [](const std::string& s) {
         std::string o;
@@ -72,16 +73,24 @@ void Config::parseFile(const std::string& path)
             if (tmp > 0) { purge_delay = tmp; }
             else { fprintf(stderr, "ERROR: Invalid config value PURGE_DELAY=%s\n", tokens[1].str().c_str()); }
 
-        } else if (std::regex_match(line, tokens, reListenAddr)) {
-            auto listen_addr = tokens[1].str();
+        } else if (std::regex_match(line, tokens, reCaListenAddr)) {
+            auto addr = tokens[1].str();
             auto tmp = std::atol(tokens[4].str().c_str());
             if (tmp > 0 && tmp < 65535) {
-                listen_addresses.emplace_back(listen_addr, tmp);
+                ca_listen_addresses.emplace_back(addr, tmp);
             }
+
+        } else if (std::regex_match(line, tokens, reCaSearchAddr)) {
+            auto addr = tokens[1].str();
+            auto tmp = std::atol(tokens[4].str().c_str());
+            if (tmp > 0 && tmp < 65535) {
+                ca_search_addresses.emplace_back(addr, tmp);
+            }
+
         }
     }
 
-    if (listen_addresses.empty()) {
-        listen_addresses.emplace_back("0.0.0.0", 5053);
+    if (ca_listen_addresses.empty()) {
+        ca_listen_addresses.emplace_back("0.0.0.0", 5053);
     }
 }

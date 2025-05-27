@@ -11,9 +11,11 @@ void ConnectionsManager::add(const std::shared_ptr<Connection>& connection)
 
 void ConnectionsManager::remove(const std::shared_ptr<Connection>& connection)
 {
-    for (auto it = g_connmgr.m_connections.begin(); it != g_connmgr.m_connections.end(); it++) {
+    for (auto it = g_connmgr.m_connections.begin(); it != g_connmgr.m_connections.end();) {
         if (connection->getSocket() == (*it)->getSocket()) {
-            g_connmgr.m_connections.erase(it);
+            it = g_connmgr.m_connections.erase(it);
+        } else {
+            it++;
         }
     }
 }

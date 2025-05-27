@@ -3,12 +3,6 @@ include $(TOP)/configure/CONFIG
 
 USR_CXXFLAGS += -std=c++17 -g -ggdb -O0 -DDEBUG
 
-# From PCAS
-PROD_LIBS += cas gdd
-
-PROD_LIBS += $(EPICS_BASE_HOST_LIBS)
-#PROD_INCLUDES += -I$(EPICS_BASE)/include
-
 SRCS += logging.cpp
 SRCS += config.cpp
 SRCS += proto_ca.cpp
@@ -16,12 +10,10 @@ SRCS += connection.cpp
 SRCS += searcher.cpp
 SRCS += listener.cpp
 SRCS += iocguard.cpp
-SRCS += directory.cpp
+SRCS += dispatcher.cpp
 SRCS += connmgr.cpp
 SRCS += main.cpp
-#SRCS += requestHandler.cpp
-SRCS += util.cpp
 
-PROD_HOST = cans
+PROD_HOST = pvmapper
 
 include $(TOP)/configure/RULES

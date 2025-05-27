@@ -1,7 +1,7 @@
 #include "logging.hpp"
 #include "searcher.hpp"
 
-Searcher::Searcher(const std::string& ip, uint16_t port, const std::shared_ptr<AbstractProtocol>& protocol, FoundPvCb& foundPvCb)
+Searcher::Searcher(const std::string& ip, uint16_t port, const std::shared_ptr<AbstractProtocol>& protocol, PvFoundCb& foundPvCb)
     : m_protocol(protocol)
     , m_foundPvCb(foundPvCb)
 {
@@ -34,7 +34,7 @@ void Searcher::processIncoming()
         ::inet_ntop(AF_INET, &remoteAddr.sin_addr, iocIp, sizeof(iocIp)-1);
         uint16_t iocPort = ::ntohs(remoteAddr.sin_port);
 
-        LOG_DEBUG("Received UDP packet (%u bytes) from %s:%u, potential PV(s) search response", recvd, iocIp, iocPort);
+        LOG_DEBUG("Received UDP packet (", recvd, " bytes) from ", iocIp, ":", iocPort, ", potential PV(s) search response");
 
         auto responses = m_protocol->parseSearchResponse({buffer, buffer+recvd});
         for (const auto& [chanId, rsp]: responses) {
@@ -42,7 +42,7 @@ void Searcher::processIncoming()
                 if (it->second == chanId) {
                     auto pvname = it->first;
 
-                    LOG_VERBOSE("Found %s on %s:%u", pvname.c_str(), iocIp, iocPort);
+                    LOG_VERBOSE("Found ", pvname, " on ", iocIp, ":", iocPort);
                     m_foundPvCb(pvname, iocIp, iocPort, rsp);
 
                     m_searchedPvs.erase(it);

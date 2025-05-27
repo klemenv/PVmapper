@@ -60,7 +60,7 @@ void IocGuard::processIncoming()
     char buffer[4096];
     auto recvd = ::recv(m_sock, buffer, sizeof(buffer), 0);
     if (recvd > 0) {
-        printf("Received heart-beat response\n");
+        LOG_DEBUG("Received heart-beat response from ", m_ip, ":", m_port);
         m_lastResponse = std::chrono::steady_clock::now();
     } else {
         m_sock = -1;
@@ -84,7 +84,7 @@ void IocGuard::sendHeartBeat()
         if (m_lastRequest < m_lastResponse) {
             auto msg = m_protocol->createEchoRequest(false);
             if (::send(m_sock, msg.data(), msg.size(), 0) > 0) {
-                printf("Sent heart-beat request\n");
+                LOG_DEBUG("Sent heart-beat request to ", m_ip, ":", m_port);
                 m_lastRequest = std::chrono::steady_clock::now();
                 return;
             } else {

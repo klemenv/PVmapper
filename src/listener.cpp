@@ -3,7 +3,7 @@
 
 #include <sys/socket.h>
 
-Listener::Listener(const std::string& ip, uint16_t port, const AccessControl& accessControl, const std::shared_ptr<AbstractProtocol>& protocol, SearchPvCb& cb)
+Listener::Listener(const std::string& ip, uint16_t port, const AccessControl& accessControl, const std::shared_ptr<AbstractProtocol>& protocol, PvSearchedCb& cb)
     : m_accessControl(accessControl)
     , m_protocol(protocol)
     , m_searchPvCb(cb)
@@ -45,7 +45,7 @@ void Listener::processIncoming() {
         ::inet_ntop(AF_INET, &remoteAddr.sin_addr, clientIp, sizeof(clientIp)-1);
         uint16_t clientPort = ::ntohs(remoteAddr.sin_port);
 
-        LOG_DEBUG("Received UDP packet (%u bytes) from %s:%u, potential PV(s) search request", recvd, clientIp, clientPort);
+        LOG_DEBUG("Received UDP packet (", recvd, " bytes) from ", clientIp, ":", clientPort, ", potential PV(s) search request");
 
         auto pvs = m_protocol->parseSearchRequest({buffer, buffer + recvd});
         for (const auto& [chanId, pvname]: pvs) {

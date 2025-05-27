@@ -14,18 +14,17 @@
 
 class Listener : public Connection {
     public:
-        //typedef std::vector<unsigned char>(*SearchPvCb)(const std::string& /*pvname*/, const std::string& /*client IP*/, uint16_t /*client port*/);
-        typedef std::function<std::vector<unsigned char> (const std::string & /*pvname*/, const std::string & /*client IP*/, uint16_t /*client port*/)> SearchPvCb;
+        typedef std::function<std::vector<unsigned char> (const std::string & /*pvname*/, const std::string & /*client IP*/, uint16_t /*client port*/)> PvSearchedCb;
 
     private:
         const AccessControl& m_accessControl;
         std::shared_ptr<AbstractProtocol> m_protocol;
-        SearchPvCb m_searchPvCb;
+        PvSearchedCb m_searchPvCb;
 
         bool checkAccessControl(const std::string &pvname, const std::string &client);
 
     public:
    
-        Listener(const std::string& ip, uint16_t port, const AccessControl& accessControl, const std::shared_ptr<AbstractProtocol>& protocol, SearchPvCb& cb);
+        Listener(const std::string& ip, uint16_t port, const AccessControl& accessControl, const std::shared_ptr<AbstractProtocol>& protocol, PvSearchedCb& cb);
         void processIncoming();
 };
