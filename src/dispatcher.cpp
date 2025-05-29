@@ -71,7 +71,7 @@ std::vector<unsigned char> Dispatcher::caPvSearched(const std::string &pvname, c
     } catch (std::out_of_range&) {}
 
     for (auto& searcher: m_caSearchers) {
-        searcher->searchPVs({pvname});
+        searcher->addPV(pvname);
     }
     return std::vector<unsigned char>();
 }

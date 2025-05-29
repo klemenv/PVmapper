@@ -1,6 +1,8 @@
 #include "logging.hpp"
 #include "searcher.hpp"
 
+#include <cstdint>
+
 Searcher::Searcher(const std::string& ip, uint16_t port, const std::shared_ptr<AbstractProtocol>& protocol, PvFoundCb& foundPvCb)
     : m_protocol(protocol)
     , m_foundPvCb(foundPvCb)
@@ -23,11 +25,42 @@ Searcher::Searcher(const std::string& ip, uint16_t port, const std::shared_ptr<A
     }
 }
 
+uint32_t Searcher::getNextChanId()
+{
+    if (++m_chanId == INT32_MAX) {
+        // Change ids of all searched PVs
+        m_chanId = 0;
+        for (auto& pv: m_searchedPvs) {
+            pv.chanId = m_chanId++;
+        }
+    }
+    return m_chanId;
+}
+
+void Searcher::addPV(const std::string& pvname)
+{
+    for (auto& pv: m_searchedPvs) {
+        if (pv.pvname == pvname) {
+            // We're already searching for this PV
+            return;
+        }
+    }
+
+    SearchedPV pv;
+    pv.pvname = pvname;
+    pv.nextSearch = std::chrono::steady_clock::now();
+    pv.chanId = m_chanId++;
+    m_searchedPvs.emplace_back(pv);
+
+    LOG_DEBUG("Started searching for ", pvname);
+}
+
 void Searcher::processIncoming()
 {
     char buffer[4096];
     struct sockaddr_in remoteAddr;
     socklen_t remoteAddrLen = sizeof(remoteAddr);
+    // TODO: what if more packets from other clients are in the m_sock? run recvfrom() again?
     auto recvd = ::recvfrom(m_sock, buffer, sizeof(buffer), 0, reinterpret_cast<sockaddr *>(&remoteAddr), &remoteAddrLen);
     if (recvd > 0) {
         char iocIp[20] = {0};
@@ -38,14 +71,16 @@ void Searcher::processIncoming()
 
         auto responses = m_protocol->parseSearchResponse({buffer, buffer+recvd});
         for (const auto& [chanId, rsp]: responses) {
-            for (auto it = m_searchedPvs.begin(); it != m_searchedPvs.end(); it++) {
-                if (it->second == chanId) {
-                    auto pvname = it->first;
+            // PVs searched last at are the end of the list. Iterate backwards from the end
+            // because that's most likely to find the PV quicker
+            for (auto it = m_searchedPvs.rbegin(); it != m_searchedPvs.rend(); it++) {
+                if (it->chanId == chanId) {
+                    auto pvname = it->pvname;
 
                     LOG_VERBOSE("Found ", pvname, " on ", iocIp, ":", iocPort);
                     m_foundPvCb(pvname, iocIp, iocPort, rsp);
 
-                    m_searchedPvs.erase(it);
+                    m_searchedPvs.erase(std::next(it).base());
                     break;
                 }
             }
@@ -53,38 +88,26 @@ void Searcher::processIncoming()
     }
 }
 
-bool Searcher::isChanIdUsed(uint32_t chanId)
+void Searcher::processOutgoing()
 {
-    for (const auto& [_, id]: m_searchedPvs) {
-        if (chanId == id) {
-            return true;
-        }
-    }
-    return false;
-}
-
-void Searcher::searchPVs(const std::vector<std::string>& pvnames)
-{
+    auto now = std::chrono::steady_clock::now();
     std::vector<std::pair<uint32_t, std::string>> pvs;
-    for (auto& pvname: pvnames) {
-        uint32_t chanId;
+    std::list<SearchedPV> retries;
 
-        try {
-            // We've searched for PV before, let's reuse its chanId
-            chanId = m_searchedPvs.at(pvname);
-        } catch (...) {
+    // Stop at the first PV of which the search time is in the future
+    while (m_searchedPvs.empty() == false && m_searchedPvs.front().nextSearch < now) {
+        auto& pv = m_searchedPvs.front();
 
-            while (true) {
-                // We pick a random number and hope we can only iterace over m_searchedPvs once
-                chanId = ((double)rand()/RAND_MAX) * INT32_MAX;
-                if (isChanIdUsed(chanId) == false) {
-                    m_searchedPvs[pvname] = chanId;
-                    break;
-                }
-            }
+        pvs.emplace_back(pv.chanId, pv.pvname);
+
+        // Unlike EPICS base, use a static search interval after first 3 tries
+        if (++pv.retries > 3) {
+            pv.nextSearch = std::chrono::steady_clock::now() + std::chrono::seconds(m_searchInterval);
+
+            m_searchedPvs.splice(m_searchedPvs.end(), m_searchedPvs, m_searchedPvs.begin());
+        } else {
+            retries.splice(retries.end(), m_searchedPvs, m_searchedPvs.begin());
         }
-
-        pvs.emplace_back(chanId, pvname);
 
         // Send up to 10 PVs in one go
         if (pvs.size() == 10) {
@@ -98,4 +121,7 @@ void Searcher::searchPVs(const std::vector<std::string>& pvnames)
         auto msg = m_protocol->createSearchRequest(pvs);
         ::sendto(m_sock, msg.data(), msg.size(), 0, reinterpret_cast<sockaddr *>(&m_addr), sizeof(sockaddr_in));
     }
+
+    // Put the PVs to be retried back to the beginning of the list
+    m_searchedPvs.splice(m_searchedPvs.begin(), retries, retries.begin(), retries.end());
 }

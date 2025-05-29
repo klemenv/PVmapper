@@ -60,12 +60,13 @@ void IocGuard::processIncoming()
     char buffer[4096];
     auto recvd = ::recv(m_sock, buffer, sizeof(buffer), 0);
     if (recvd > 0) {
-        LOG_DEBUG("Received heart-beat response from ", m_ip, ":", m_port);
+        LOG_DEBUG("Received heart-beat response from IOC ", m_ip, ":", m_port);
         m_lastResponse = std::chrono::steady_clock::now();
     } else {
-        m_sock = -1;
         ::close(m_sock);
+        m_sock = -1;
         m_disconnectCb(m_ip, m_port);
+        LOG_INFO("IOC ", m_ip, ":", m_port, " appears to have closed socket, disconnecting...");
     }
 }
 
@@ -88,14 +89,14 @@ void IocGuard::sendHeartBeat()
                 m_lastRequest = std::chrono::steady_clock::now();
                 return;
             } else {
-                LOG_INFO("Failed to send heart-beat to %s:%u, disconnecting...\n", m_ip.c_str(), m_port);
+                LOG_INFO("Failed to send heart-beat to IOC ", m_ip, ":", m_port, ", disconnecting...");
             }
         } else {
-            LOG_INFO("Didn't received last heart-beat response from %s:%u, disconnecting...\n", m_ip.c_str(), m_port);
+            LOG_INFO("Didn't received last heart-beat response from IOC ", m_ip, ":", m_port, ", disconnecting...");
         }
 
-        m_sock = -1;
         ::close(m_sock);
+        m_sock = -1;
         m_disconnectCb(m_ip, m_port);
     }
 }
