@@ -19,7 +19,7 @@ IocGuard::IocGuard(const std::string& iocIp, uint16_t iocPort, const std::shared
         throw SocketException("failed to set socket non-blocking", errno);
     }
 
-    m_addr = {0}; // avoid using memset()
+    m_addr = {}; // avoid using memset()
     m_addr.sin_family = AF_INET;
     m_addr.sin_port = ::htons(iocPort);
     if (::inet_aton(iocIp.c_str(), reinterpret_cast<in_addr*>(&m_addr.sin_addr.s_addr)) == 0) {
@@ -66,7 +66,11 @@ void IocGuard::processIncoming()
         ::close(m_sock);
         m_sock = -1;
         m_disconnectCb(m_ip, m_port);
-        LOG_INFO("IOC ", m_ip, ":", m_port, " appears to have closed socket, disconnecting...");
+        if (recvd == 0) {
+            LOG_INFO("IOC ", m_ip, ":", m_port, " appears to have closed socket, disconnecting...");
+        } else {
+            LOG_INFO("Error receiving data from IOC ", m_ip, ":", m_port, ", disconnecting...");
+        }
     }
 }
 

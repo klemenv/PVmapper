@@ -2,6 +2,8 @@
 #include "searcher.hpp"
 
 #include <cstdint>
+#include <fcntl.h>
+#include <numeric>
 
 Searcher::Searcher(const std::string& ip, uint16_t port, const std::shared_ptr<AbstractProtocol>& protocol, PvFoundCb& foundPvCb)
     : m_protocol(protocol)
@@ -17,7 +19,11 @@ Searcher::Searcher(const std::string& ip, uint16_t port, const std::shared_ptr<A
         throw SocketException("failed to enable broadcast on socket - {errno}");
     }
 
-    m_addr = {0}; // avoid using memset()
+    if (::fcntl(m_sock, F_SETFL, fcntl(m_sock, F_GETFL, 0) | O_NONBLOCK) == -1) {
+        throw SocketException("failed to set socket non-blocking", errno);
+    }
+
+    m_addr = {}; // avoid using memset()
     m_addr.sin_family = AF_INET;
     m_addr.sin_port = ::htons(port);
     if (::inet_aton(ip.c_str(), reinterpret_cast<in_addr*>(&m_addr.sin_addr.s_addr)) == 0) {
@@ -60,9 +66,8 @@ void Searcher::processIncoming()
     char buffer[4096];
     struct sockaddr_in remoteAddr;
     socklen_t remoteAddrLen = sizeof(remoteAddr);
-    // TODO: what if more packets from other clients are in the m_sock? run recvfrom() again?
     auto recvd = ::recvfrom(m_sock, buffer, sizeof(buffer), 0, reinterpret_cast<sockaddr *>(&remoteAddr), &remoteAddrLen);
-    if (recvd > 0) {
+    while (recvd > 0) {
         char iocIp[20] = {0};
         ::inet_ntop(AF_INET, &remoteAddr.sin_addr, iocIp, sizeof(iocIp)-1);
         uint16_t iocPort = ::ntohs(remoteAddr.sin_port);
@@ -85,6 +90,7 @@ void Searcher::processIncoming()
                 }
             }
         }
+        recvd = ::recvfrom(m_sock, buffer, sizeof(buffer), 0, reinterpret_cast<sockaddr *>(&remoteAddr), &remoteAddrLen);
     }
 }
 
@@ -111,6 +117,11 @@ void Searcher::processOutgoing()
 
         // Send up to 10 PVs in one go
         if (pvs.size() == 10) {
+            std::string tmp;
+            std::for_each(pvs.begin(), pvs.end(), [&tmp](auto& it) { tmp += it.second + ","; });
+            tmp.pop_back();
+            LOG_VERBOSE("Sending search request for ", tmp);
+
             auto msg = m_protocol->createSearchRequest(pvs);
             ::sendto(m_sock, msg.data(), msg.size(), 0, reinterpret_cast<sockaddr *>(&m_addr), sizeof(sockaddr_in));
             pvs.clear();
@@ -118,6 +129,11 @@ void Searcher::processOutgoing()
     }
 
     if (pvs.size() > 0) {
+        std::string tmp;
+        std::for_each(pvs.begin(), pvs.end(), [&tmp](auto& it) { tmp += it.second + ","; });
+        tmp.pop_back();
+        LOG_VERBOSE("Sending search request for ", tmp);
+
         auto msg = m_protocol->createSearchRequest(pvs);
         ::sendto(m_sock, msg.data(), msg.size(), 0, reinterpret_cast<sockaddr *>(&m_addr), sizeof(sockaddr_in));
     }

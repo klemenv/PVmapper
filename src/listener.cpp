@@ -1,6 +1,7 @@
 #include "listener.hpp"
 #include "logging.hpp"
 
+#include <fcntl.h>
 #include <sys/socket.h>
 
 Listener::Listener(const std::string& ip, uint16_t port, const AccessControl& accessControl, const std::shared_ptr<AbstractProtocol>& protocol, PvSearchedCb& cb)
@@ -20,7 +21,11 @@ Listener::Listener(const std::string& ip, uint16_t port, const AccessControl& ac
     }
 */
 
-    m_addr = {0}; // avoid using memset()
+    if (::fcntl(m_sock, F_SETFL, fcntl(m_sock, F_GETFL, 0) | O_NONBLOCK) == -1) {
+        throw SocketException("failed to set socket non-blocking", errno);
+    }
+
+    m_addr = {}; // avoid using memset()
     m_addr.sin_family = AF_INET;
     m_addr.sin_port = ::htons(port);
     if (ip.empty()) {
@@ -40,7 +45,7 @@ void Listener::processIncoming() {
     socklen_t remoteAddrLen = sizeof(remoteAddr);
 
     auto recvd = ::recvfrom(m_sock, buffer, sizeof(buffer), 0, reinterpret_cast<sockaddr *>(&remoteAddr), &remoteAddrLen);
-    if (recvd > 0) {
+    while (recvd > 0) {
         char clientIp[20] = {0};
         ::inet_ntop(AF_INET, &remoteAddr.sin_addr, clientIp, sizeof(clientIp)-1);
         uint16_t clientPort = ::ntohs(remoteAddr.sin_port);
@@ -50,7 +55,7 @@ void Listener::processIncoming() {
         auto pvs = m_protocol->parseSearchRequest({buffer, buffer + recvd});
         for (const auto& [chanId, pvname]: pvs) {
 
-            LOG_VERBOSE("%s:%u searching for %s", clientIp, clientPort, pvname.c_str());
+            LOG_VERBOSE("Client ", clientIp, ":", clientPort, " searching for ", pvname);
 
             if (checkAccessControl(pvname, clientIp)) {
 
@@ -61,6 +66,8 @@ void Listener::processIncoming() {
                 }
             }
         }
+
+        recvd = ::recvfrom(m_sock, buffer, sizeof(buffer), 0, reinterpret_cast<sockaddr *>(&remoteAddr), &remoteAddrLen);
     }
 }
 
