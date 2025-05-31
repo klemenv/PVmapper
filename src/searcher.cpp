@@ -70,7 +70,10 @@ void Searcher::processIncoming()
     while (recvd > 0) {
         char iocIp[20] = {0};
         ::inet_ntop(AF_INET, &remoteAddr.sin_addr, iocIp, sizeof(iocIp)-1);
-        uint16_t iocPort = ::ntohs(remoteAddr.sin_port);
+        uint16_t udpPort = ::ntohs(remoteAddr.sin_port);
+
+        // Decode TCP port from the response packet
+        auto [_, iocPort] = m_protocol->parseIocAddr(iocIp, udpPort, {buffer, buffer+recvd});
 
         LOG_DEBUG("Received UDP packet (", recvd, " bytes) from ", iocIp, ":", iocPort, ", potential PV(s) search response");
 

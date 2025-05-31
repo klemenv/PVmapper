@@ -149,3 +149,23 @@ std::vector<std::pair<uint32_t, std::vector<unsigned char>>> ChannelAccess::pars
 
     return searches;
 }
+
+std::pair<std::string, uint16_t> ChannelAccess::parseIocAddr(const std::string& ip, [[maybe_unused]] uint16_t udpPort, const std::vector<unsigned char>& buffer)
+{
+    size_t offset = 0;
+    while ((offset + sizeof(Header)) <= buffer.size()) {
+        auto hdr = reinterpret_cast<const Header*>(buffer.data() + offset);
+        uint16_t command = ::ntohs(hdr->command);
+        auto payloadLen = ::ntohs(hdr->payloadLen);
+
+        if (command == CMD_SEARCH && (offset + sizeof(Header) + payloadLen) <= buffer.size()) {
+            if (payloadLen == 8 && hdr->dataCount == 0) {
+                return std::make_pair(ip, ::ntohs(hdr->dataType));
+            }
+        }
+
+        offset += sizeof(Header) + payloadLen;
+    }
+
+    return std::make_pair("", 0);
+}

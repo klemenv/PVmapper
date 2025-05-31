@@ -11,4 +11,5 @@ class AbstractProtocol {
         virtual bool updateSearchRequest(std::vector<unsigned char> &packet, uint32_t chanId) = 0;
         virtual std::vector<std::pair<uint32_t, std::string>> parseSearchRequest(const std::vector<unsigned char>& buffer) = 0;
         virtual std::vector<std::pair<uint32_t, std::vector<unsigned char>>> parseSearchResponse(const std::vector<unsigned char>& buffer) = 0;
+        virtual std::pair<std::string, uint16_t> parseIocAddr(const std::string& ip, uint16_t udpPort, const std::vector<unsigned char>& buffer) = 0;
 };

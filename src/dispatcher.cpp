@@ -36,7 +36,6 @@ void Dispatcher::iocDisconnected(const std::string& iocIP, uint16_t iocPort)
 
 void Dispatcher::caPvFound(const std::string& pvname, const std::string& iocIP, uint16_t iocPort, const std::vector<unsigned char>& response)
 {
-    printf("foundPvCaCb(%s, %s, %u)\n", pvname.c_str(), iocIP.c_str(), iocPort);
     std::shared_ptr<IocGuard> iocGuard;
     auto it = m_iocs.find(std::make_pair(iocIP, iocPort));
     if (it != m_iocs.end()) {
@@ -46,7 +45,8 @@ void Dispatcher::caPvFound(const std::string& pvname, const std::string& iocIP, 
         IocGuard::DisconnectCb disconnectCb = std::bind(&Dispatcher::iocDisconnected, this, _1, _2);
         try {
             iocGuard.reset(new IocGuard(iocIP, iocPort, m_caProto, disconnectCb));
-        } catch (...) {
+        } catch (SocketException& e) {
+            LOG_ERROR("Failed to create IOC ", iocIP, ":", iocPort, " monitoring connection: ", e.what());
             return;
         }
         m_iocs[std::make_pair(iocIP, iocPort)] = iocGuard;

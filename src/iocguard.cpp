@@ -12,11 +12,11 @@ IocGuard::IocGuard(const std::string& iocIp, uint16_t iocPort, const std::shared
 {
     m_sock = ::socket(AF_INET, SOCK_STREAM, 0);
     if (m_sock < 0) {
-        throw SocketException("failed to create socket", errno);
+        throw SocketException("create socket", errno);
     }
 
     if (::fcntl(m_sock, F_SETFL, fcntl(m_sock, F_GETFL, 0) | O_NONBLOCK) == -1) {
-        throw SocketException("failed to set socket non-blocking", errno);
+        throw SocketException("set socket non-blocking", errno);
     }
 
     m_addr = {}; // avoid using memset()
@@ -33,7 +33,7 @@ IocGuard::IocGuard(const std::string& iocIp, uint16_t iocPort, const std::shared
         int err = errno;
         ::close(m_sock);
         m_sock = -1;
-        throw SocketException("failed to connect", err);
+        throw SocketException("connecting ", err);
     }
 
     auto msg = m_protocol->createEchoRequest(true);
@@ -41,7 +41,7 @@ IocGuard::IocGuard(const std::string& iocIp, uint16_t iocPort, const std::shared
         int err = errno;
         ::close(m_sock);
         m_sock = -1;
-        throw SocketException("failed to establish connection", err);
+        throw SocketException("sending ECHO packet ", err);
     }
 
     m_lastRequest = std::chrono::steady_clock::now();
