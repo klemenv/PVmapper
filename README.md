@@ -22,4 +22,3 @@ motivation for this project were:
 * reduce EPICS broadcast footprint
 * support any IOC (including LabView, pcaspy etc.) without modifying it
 * recognize new IOCs dynamically
-* adapt to IOC changing list of PVs upon reboot or dynamically

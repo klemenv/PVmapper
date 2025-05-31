@@ -1,6 +1,2 @@
-/configure/*.local
-/bin/
-O.*
-nameserver.*
-never.log
-log.file*
+/build/
+.vscode/

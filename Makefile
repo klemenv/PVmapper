@@ -1,12 +1,7 @@
-# Top of Nameserver tree
-TOP = .
-include $(TOP)/configure/CONFIG
+SUBDIRS := src
 
-# Directories to build, any order
-DIRS += configure
-DIRS += src
+all: $(SUBDIRS)
+$(SUBDIRS):
+	$(MAKE) -C $@
 
-# Directory dependencies
-src_DEPEND_DIRS += configure
-
-include $(TOP)/configure/RULES_TOP
+.PHONY: all $(SUBDIRS)
