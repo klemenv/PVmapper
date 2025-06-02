@@ -55,10 +55,7 @@ void Listener::processIncoming() {
         auto pvs = m_protocol->parseSearchRequest({buffer, buffer + recvd});
         for (const auto& [chanId, pvname]: pvs) {
 
-            LOG_VERBOSE("Client ", clientIp, ":", clientPort, " searching for ", pvname);
-
-            if (checkAccessControl(pvname, clientIp)) {
-
+            if (checkAccessControl(pvname, clientIp, clientPort)) {
                 auto rsp = m_searchPvCb(pvname, clientIp, clientPort);
                 if (rsp.empty() == false) {
                     m_protocol->updateSearchRequest(rsp, chanId);
@@ -71,7 +68,7 @@ void Listener::processIncoming() {
     }
 }
 
-bool Listener::checkAccessControl(const std::string& pvname_, const std::string& client)
+bool Listener::checkAccessControl(const std::string& pvname_, const std::string& client, uint16_t port)
 {
     auto pvname = pvname_;
 
@@ -88,7 +85,7 @@ bool Listener::checkAccessControl(const std::string& pvname_, const std::string&
             if (rule.action == AccessControl::ALLOW) {
                 break;
             } else if (rule.action == AccessControl::DENY) {
-                LOG_VERBOSE("Rejected request from ", client, " searching for PV ", pvname, " due to '", rule.text, "' rule");
+                LOG_VERBOSE("Client ", client, ":", port, " searched for ", pvname, ": rejected due to '", rule.text, "' rule");
                 return false;
             }
         }
@@ -104,7 +101,7 @@ bool Listener::checkAccessControl(const std::string& pvname_, const std::string&
             if (rule.action == AccessControl::ALLOW) {
                 break;
             } else if (rule.action == AccessControl::DENY) {
-                LOG_VERBOSE("Rejected request from ", client, " searching for PV ", pvname, " due to '", rule.text, "' rule");
+                LOG_VERBOSE("Client ", client, ":", port, " searched for ", pvname, ": rejected due to '", rule.text, "' rule");
                 return false;
             }
         }

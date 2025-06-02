@@ -60,7 +60,7 @@ void IocGuard::processIncoming()
     char buffer[4096];
     auto recvd = ::recv(m_sock, buffer, sizeof(buffer), 0);
     if (recvd > 0) {
-        LOG_DEBUG("Received heart-beat response from IOC ", m_ip, ":", m_port);
+        LOG_VERBOSE("Received heart-beat response from IOC ", m_ip, ":", m_port);
         m_lastResponse = std::chrono::steady_clock::now();
     } else {
         ::close(m_sock);
@@ -96,7 +96,7 @@ void IocGuard::sendHeartBeat()
                 LOG_INFO("Failed to send heart-beat to IOC ", m_ip, ":", m_port, ", disconnecting...");
             }
         } else {
-            LOG_INFO("Didn't received last heart-beat response from IOC ", m_ip, ":", m_port, ", disconnecting...");
+            LOG_INFO("Didn't receive last heart-beat response from IOC ", m_ip, ":", m_port, ", disconnecting...");
         }
 
         ::close(m_sock);

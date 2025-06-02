@@ -16,6 +16,15 @@ namespace Log {
         }
     }
 
+    inline const char* level2str(Level level) {
+        switch (level) {
+            case Level::Info:       return "INFO";
+            case Level::Verbose:    return "VERBOSE";
+            case Level::Debug:      return "DEBUG";
+            default:                return "ERROR";
+        }
+    }
+
     void init(const std::string& id, const std::string& syslogFacility, Level lvl)
     {
         _level = lvl;
@@ -55,7 +64,7 @@ namespace Log {
             if (_syslog == true) {
                 syslog(level2prio(lvl), "%s", msg.str().c_str());
             } else {
-                printf("%s\n", msg.str().c_str());
+                printf("%s: %s\n", level2str(lvl), msg.str().c_str());
             }
         }
     }

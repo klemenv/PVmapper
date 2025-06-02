@@ -30,7 +30,6 @@ void Dispatcher::iocDisconnected(const std::string& iocIP, uint16_t iocPort)
     auto it = m_iocs.find(std::make_pair(iocIP, iocPort));
     if (it != m_iocs.end()) {
         m_iocs.erase(it);
-        ConnectionsManager::remove(it->second);
     }
 }
 
@@ -64,14 +63,14 @@ std::vector<unsigned char> Dispatcher::caPvSearched(const std::string &pvname, c
     try {
         auto pv = m_connectedPVs.at(pvname);
         if (pv.ioc && pv.ioc->isConnected()) {
-            LOG_INFO("Client ", clientIP, ":", clientPort, " searched for ", pvname, ", found in cache");
+            LOG_INFO("Client ", clientIP, ":", clientPort, " searched for ", pvname, ": found in cache");
             return pv.response;
         }
         // The IOC must got disconnected
         m_connectedPVs.erase(pvname);
     } catch (std::out_of_range&) {}
 
-    LOG_INFO("Client ", clientIP, ":", clientPort, " searched for ", pvname, ", not in cache, starting the search");
+    LOG_INFO("Client ", clientIP, ":", clientPort, " searched for ", pvname, ": not in cache, starting the search");
     for (auto& searcher: m_caSearchers) {
         searcher->addPV(pvname);
     }

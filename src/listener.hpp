@@ -10,8 +10,6 @@
 #include <string>
 #include <vector>
 
-
-
 class Listener : public Connection {
     public:
         typedef std::function<std::vector<unsigned char> (const std::string & /*pvname*/, const std::string & /*client IP*/, uint16_t /*client port*/)> PvSearchedCb;
@@ -21,7 +19,7 @@ class Listener : public Connection {
         std::shared_ptr<AbstractProtocol> m_protocol;
         PvSearchedCb m_searchPvCb;
 
-        bool checkAccessControl(const std::string &pvname, const std::string &client);
+        bool checkAccessControl(const std::string &pvname, const std::string &client, uint16_t port);
 
     public:
    
