@@ -66,7 +66,7 @@ std::vector<unsigned char> ChannelAccess::createSearchRequest(const std::vector<
     return buffer;
 }
 
-bool ChannelAccess::updateSearchRequest(std::vector<unsigned char> &buffer, uint32_t chanId)
+bool ChannelAccess::updateSearchReply(std::vector<unsigned char> &buffer, uint32_t chanId)
 {
     size_t offset = 0;
     bool updated = false;
@@ -76,6 +76,25 @@ bool ChannelAccess::updateSearchRequest(std::vector<unsigned char> &buffer, uint
         auto command = ::ntohs(hdr->command);
         if (command == CMD_SEARCH) {
             hdr->param2 = ::htonl(chanId);
+            updated = true;
+        }
+        offset += sizeof(Header) + ::ntohs(hdr->payloadLen);
+    }
+
+    return updated;
+}
+
+bool ChannelAccess::updateSearchReply(std::vector<unsigned char> &buffer, const std::string& iocIp, uint16_t iocPort)
+{
+    size_t offset = 0;
+    bool updated = false;
+
+    while ((offset + sizeof(Header)) <= buffer.size()) {
+        auto hdr = reinterpret_cast<Header*>(buffer.data() + offset);
+        auto command = ::ntohs(hdr->command);
+        if (command == CMD_SEARCH) {
+            hdr->dataType = ::htons(iocPort);
+            ::inet_aton(iocIp.c_str(), reinterpret_cast<in_addr *>(&hdr->param1));
             updated = true;
         }
         offset += sizeof(Header) + ::ntohs(hdr->payloadLen);

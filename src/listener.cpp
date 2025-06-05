@@ -58,7 +58,7 @@ void Listener::processIncoming() {
             if (checkAccessControl(pvname, clientIp, clientPort)) {
                 auto rsp = m_searchPvCb(pvname, clientIp, clientPort);
                 if (rsp.empty() == false) {
-                    m_protocol->updateSearchRequest(rsp, chanId);
+                    m_protocol->updateSearchReply(rsp, chanId);
                     ::sendto(m_sock, rsp.data(), rsp.size(), 0, reinterpret_cast<sockaddr *>(&remoteAddr), remoteAddrLen);
                 }
             }

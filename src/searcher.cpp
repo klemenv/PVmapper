@@ -78,7 +78,12 @@ void Searcher::processIncoming()
         LOG_DEBUG("Received UDP packet (", recvd, " bytes) from ", iocIp, ":", iocPort, ", potential PV(s) search response");
 
         auto responses = m_protocol->parseSearchResponse({buffer, buffer+recvd});
-        for (const auto& [chanId, rsp]: responses) {
+        for (auto& [chanId, rsp]: responses) {
+            // IOC might have returned 255.255.255.255 in the CA reply for the client
+            // to use the IP address from the socket. But this doesn't work when
+            // nameserver is in between, so we need to set the IOC's IP in the packet.
+            m_protocol->updateSearchReply(rsp, iocIp, iocPort);
+
             // PVs searched last at are the end of the list. Iterate backwards from the end
             // because that's most likely to find the PV quicker
             for (auto it = m_searchedPvs.rbegin(); it != m_searchedPvs.rend(); it++) {
