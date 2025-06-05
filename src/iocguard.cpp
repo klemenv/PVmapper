@@ -15,10 +15,6 @@ IocGuard::IocGuard(const std::string& iocIp, uint16_t iocPort, const std::shared
         throw SocketException("create socket", errno);
     }
 
-    if (::fcntl(m_sock, F_SETFL, fcntl(m_sock, F_GETFL, 0) | O_NONBLOCK) == -1) {
-        throw SocketException("set socket non-blocking", errno);
-    }
-
     m_addr = {}; // avoid using memset()
     m_addr.sin_family = AF_INET;
     m_addr.sin_port = ::htons(iocPort);
@@ -42,6 +38,10 @@ IocGuard::IocGuard(const std::string& iocIp, uint16_t iocPort, const std::shared
         ::close(m_sock);
         m_sock = -1;
         throw SocketException("sending ECHO packet ", err);
+    }
+
+    if (::fcntl(m_sock, F_SETFL, fcntl(m_sock, F_GETFL, 0) | O_NONBLOCK) == -1) {
+        throw SocketException("set socket non-blocking", errno);
     }
 
     m_lastRequest = std::chrono::steady_clock::now();
