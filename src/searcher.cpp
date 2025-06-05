@@ -43,12 +43,12 @@ uint32_t Searcher::getNextChanId()
     return m_chanId;
 }
 
-void Searcher::addPV(const std::string& pvname)
+bool Searcher::addPV(const std::string& pvname)
 {
     for (auto& pv: m_searchedPvs) {
         if (pv.pvname == pvname) {
             // We're already searching for this PV
-            return;
+            return false;
         }
     }
 
@@ -57,8 +57,7 @@ void Searcher::addPV(const std::string& pvname)
     pv.nextSearch = std::chrono::steady_clock::now();
     pv.chanId = m_chanId++;
     m_searchedPvs.emplace_back(pv);
-
-    LOG_DEBUG("Started searching for ", pvname);
+    return true;
 }
 
 void Searcher::processIncoming()

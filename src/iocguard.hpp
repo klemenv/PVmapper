@@ -25,4 +25,5 @@ class IocGuard : public Connection {
         ~IocGuard();
         void processIncoming();
         void processOutgoing();
+        std::pair<std::string, uint16_t> getIocAddr() { return std::make_pair(m_ip, m_port); }
 };

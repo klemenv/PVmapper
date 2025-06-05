@@ -63,16 +63,24 @@ std::vector<unsigned char> Dispatcher::caPvSearched(const std::string &pvname, c
     try {
         auto pv = m_connectedPVs.at(pvname);
         if (pv.ioc && pv.ioc->isConnected()) {
-            LOG_INFO("Client ", clientIP, ":", clientPort, " searched for ", pvname, ": found in cache");
+            const auto [iocIp, iocPort] = pv.ioc->getIocAddr();
+            LOG_INFO("Client ", clientIP, ":", clientPort, " searched for ", pvname, ": found in cache, redirecting to IOC ", iocIp, ":", iocPort);
             return pv.response;
         }
         // The IOC must got disconnected
         m_connectedPVs.erase(pvname);
     } catch (std::out_of_range&) {}
 
-    LOG_INFO("Client ", clientIP, ":", clientPort, " searched for ", pvname, ": not in cache, starting the search");
+    bool added = false;
     for (auto& searcher: m_caSearchers) {
-        searcher->addPV(pvname);
+        if (searcher->addPV(pvname) && !added) {
+            added = true;
+        }
+    }
+    if (added) {
+        LOG_INFO("Client ", clientIP, ":", clientPort, " searched for ", pvname, ": not in cache, started the search");
+    } else {
+        LOG_INFO("Client ", clientIP, ":", clientPort, " searched for ", pvname, ": not in cache, search in progress");
     }
     return std::vector<unsigned char>();
 }
