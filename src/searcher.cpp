@@ -8,6 +8,8 @@
 Searcher::Searcher(const std::string& ip, uint16_t port, const std::shared_ptr<AbstractProtocol>& protocol, PvFoundCb& foundPvCb)
     : m_protocol(protocol)
     , m_foundPvCb(foundPvCb)
+    , m_searchIp(ip)
+    , m_searchPort(port)
 {
     m_sock = ::socket(AF_INET, SOCK_DGRAM, 0);
     if (m_sock < 0) {
@@ -52,11 +54,12 @@ bool Searcher::addPV(const std::string& pvname)
         }
     }
 
+    // Prepend the PV to the front of the list to be picked up next time we search for PVs
     SearchedPV pv;
     pv.pvname = pvname;
     pv.nextSearch = std::chrono::steady_clock::now();
     pv.chanId = m_chanId++;
-    m_searchedPvs.emplace_back(pv);
+    m_searchedPvs.emplace_front(pv);
     return true;
 }
 
@@ -122,12 +125,12 @@ void Searcher::processOutgoing()
             retries.splice(retries.end(), m_searchedPvs, m_searchedPvs.begin());
         }
 
-        // Send up to 10 PVs in one go
+        // Send up to 10 PVs in one go - TODO: let the Protocol class decide on this!!!
         if (pvs.size() == 10) {
             std::string tmp;
             std::for_each(pvs.begin(), pvs.end(), [&tmp](auto& it) { tmp += it.second + ","; });
             tmp.pop_back();
-            LOG_VERBOSE("Sending search request for ", tmp);
+            LOG_VERBOSE("Sending search request for ", tmp, " to ", m_searchIp, ":", m_searchPort);
 
             auto msg = m_protocol->createSearchRequest(pvs);
             ::sendto(m_sock, msg.data(), msg.size(), 0, reinterpret_cast<sockaddr *>(&m_addr), sizeof(sockaddr_in));
@@ -139,7 +142,7 @@ void Searcher::processOutgoing()
         std::string tmp;
         std::for_each(pvs.begin(), pvs.end(), [&tmp](auto& it) { tmp += it.second + ","; });
         tmp.pop_back();
-        LOG_VERBOSE("Sending search request for ", tmp);
+        LOG_VERBOSE("Sending search request for ", tmp, " to ", m_searchIp, ":", m_searchPort);
 
         auto msg = m_protocol->createSearchRequest(pvs);
         ::sendto(m_sock, msg.data(), msg.size(), 0, reinterpret_cast<sockaddr *>(&m_addr), sizeof(sockaddr_in));

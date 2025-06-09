@@ -26,6 +26,8 @@ class Searcher : public Connection {
         std::shared_ptr<AbstractProtocol> m_protocol;
         std::list<SearchedPV> m_searchedPvs;
         PvFoundCb m_foundPvCb;
+        std::string m_searchIp;
+        uint16_t m_searchPort;
 
         uint32_t getNextChanId();
 
