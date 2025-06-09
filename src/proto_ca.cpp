@@ -46,7 +46,7 @@ std::vector<unsigned char> ChannelAccess::createSearchRequest(const std::vector<
 
     size_t offset = buffer.size();
     for (const auto& [chanId, pvname]: pvs) {
-        size_t payloadLen = ((pvname.length() & 0xFFFF) + 7) & ~7; // must be aligned to 8
+        size_t payloadLen = (((pvname.length()+1) & 0xFFFF) + 7) & ~7; // must be aligned to 8
         buffer.resize(buffer.size() + sizeof(Header) + payloadLen);
 
         hdr = reinterpret_cast<Header *>(buffer.data() + offset);
