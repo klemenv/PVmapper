@@ -33,7 +33,7 @@ std::vector<unsigned char> ChannelAccess::createEchoRequest(bool includeVersion)
     return buffer;
 }
 
-std::vector<unsigned char> ChannelAccess::createSearchRequest(const std::vector<std::pair<uint32_t, std::string>>& pvs) {
+std::pair< std::vector<unsigned char>, uint16_t> ChannelAccess::createSearchRequest(const std::vector<std::pair<uint32_t, std::string>>& pvs) {
     std::vector<unsigned char> buffer(sizeof(Header));
 
     auto hdr = reinterpret_cast<Header *>(buffer.data());
@@ -45,8 +45,9 @@ std::vector<unsigned char> ChannelAccess::createSearchRequest(const std::vector<
     hdr->param2 = ::htons(0x0);
 
     size_t offset = buffer.size();
+    uint16_t nPvs = 0;
     for (const auto& [chanId, pvname]: pvs) {
-        size_t payloadLen = (((pvname.length()+1) & 0xFFFF) + 7) & ~7; // must be aligned to 8
+        uint16_t payloadLen = (((pvname.length()+1) & 0xFFFF) + 7) & ~7; // must be aligned to 8
         buffer.resize(buffer.size() + sizeof(Header) + payloadLen);
 
         hdr = reinterpret_cast<Header *>(buffer.data() + offset);
@@ -61,9 +62,15 @@ std::vector<unsigned char> ChannelAccess::createSearchRequest(const std::vector<
         pvname.copy(payload, pvname.length() & 0xFFFF);
 
         offset += sizeof(Header) + payloadLen;
+        nPvs++;
+
+        // Limit packet size to about 1000 bytes
+        if (offset > 1000) {
+            break;
+        }
     }
 
-    return buffer;
+    return std::make_pair(buffer, nPvs);
 }
 
 bool ChannelAccess::updateSearchReply(std::vector<unsigned char> &buffer, uint32_t chanId)

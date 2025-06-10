@@ -146,28 +146,21 @@ void Searcher::processOutgoing()
         } else {
             retries.splice(retries.end(), m_searchedPvs, m_searchedPvs.begin());
         }
-
-        // Send up to 10 PVs in one go - TODO: let the Protocol class decide on this!!!
-        if (pvs.size() == 10) {
-            std::string tmp;
-            std::for_each(pvs.begin(), pvs.end(), [&tmp](auto& it) { tmp += it.second + ","; });
-            tmp.pop_back();
-            LOG_VERBOSE("Sending search request for ", tmp, " to ", m_searchIp, ":", m_searchPort);
-
-            auto msg = m_protocol->createSearchRequest(pvs);
-            ::sendto(m_sock, msg.data(), msg.size(), 0, reinterpret_cast<sockaddr *>(&m_addr), sizeof(sockaddr_in));
-            pvs.clear();
-        }
     }
 
-    if (pvs.size() > 0) {
+    // Send some PVs in each iteration depending how large packets are allowed by a given protol.
+    // Keep iterating until there's more PVs to search for
+    while (pvs.empty() == false) {
+        const auto [msg, nPvs] = m_protocol->createSearchRequest(pvs);
+
         std::string tmp;
-        std::for_each(pvs.begin(), pvs.end(), [&tmp](auto& it) { tmp += it.second + ","; });
+        std::for_each(pvs.begin(), pvs.begin()+nPvs, [&tmp](auto& it) { tmp += it.second + ","; });
         tmp.pop_back();
         LOG_VERBOSE("Sending search request for ", tmp, " to ", m_searchIp, ":", m_searchPort);
 
-        auto msg = m_protocol->createSearchRequest(pvs);
         ::sendto(m_sock, msg.data(), msg.size(), 0, reinterpret_cast<sockaddr *>(&m_addr), sizeof(sockaddr_in));
+
+        pvs.erase(pvs.begin(), pvs.begin() + nPvs);
     }
 
     // Put the PVs to be retried back to the beginning of the list
