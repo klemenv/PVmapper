@@ -1,9 +1,14 @@
 #include "logging.hpp"
 #include "searcher.hpp"
 
+#include <algorithm>
 #include <cstdint>
 #include <fcntl.h>
 #include <numeric>
+#include <vector>
+
+// Keep a list of searched PVs across all Searcher instances
+std::vector<std::string> g_searchedPvs;
 
 Searcher::Searcher(const std::string& ip, uint16_t port, const std::shared_ptr<AbstractProtocol>& protocol, PvFoundCb& foundPvCb)
     : m_protocol(protocol)
@@ -60,6 +65,10 @@ bool Searcher::addPV(const std::string& pvname)
     pv.nextSearch = std::chrono::steady_clock::now();
     pv.chanId = m_chanId++;
     m_searchedPvs.emplace_front(pv);
+
+    if (std::find(g_searchedPvs.begin(), g_searchedPvs.end(), pvname) == g_searchedPvs.end()) {
+        g_searchedPvs.emplace_back(pvname);
+    }
     return true;
 }
 
@@ -86,7 +95,7 @@ void Searcher::processIncoming()
             // nameserver is in between, so we need to set the IOC's IP in the packet.
             m_protocol->updateSearchReply(rsp, iocIp, iocPort);
 
-            // PVs searched last at are the end of the list. Iterate backwards from the end
+            // PVs searched last are the end of the list. Iterate backwards from the end
             // because that's most likely to find the PV quicker
             for (auto it = m_searchedPvs.rbegin(); it != m_searchedPvs.rend(); it++) {
                 if (it->chanId == chanId) {
@@ -96,6 +105,12 @@ void Searcher::processIncoming()
                     m_foundPvCb(pvname, iocIp, iocPort, rsp);
 
                     m_searchedPvs.erase(std::next(it).base());
+
+                    auto jt = std::find(g_searchedPvs.begin(), g_searchedPvs.end(), pvname);
+                    if (jt != g_searchedPvs.end()) {
+                        g_searchedPvs.erase(jt);
+                    }
+
                     break;
                 }
             }
@@ -114,6 +129,13 @@ void Searcher::processOutgoing()
     while (m_searchedPvs.empty() == false && m_searchedPvs.front().nextSearch < now) {
         auto& pv = m_searchedPvs.front();
 
+        // Check whether some other Searcher found the PV
+        if (std::find(g_searchedPvs.begin(), g_searchedPvs.end(), pv.pvname) == g_searchedPvs.end()) {
+            m_searchedPvs.pop_front();
+            continue;
+        }
+
+        // Add to the list of PVs to be searched for this time
         pvs.emplace_back(pv.chanId, pv.pvname);
 
         // Unlike EPICS base, use a static search interval after first 3 tries
