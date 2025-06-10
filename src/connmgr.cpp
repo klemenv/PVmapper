@@ -36,7 +36,7 @@ void ConnectionsManager::run(double timeout) {
     }
 
     // Use poll to process all connections with incoming packets
-    if (::poll(fds.get(), nFds, timeout*1000) > 0) {
+    if (::poll(fds.get(), nFds, static_cast<int>(timeout*1000)) > 0) {
         for (size_t i = 0; i < nFds; i++) {
             if (fds[i].revents & POLLIN) {
                 g_connmgr.m_connections[i]->processIncoming();

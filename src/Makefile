@@ -1,6 +1,6 @@
 CXX = g++
-#CXX_FLAGS = -Wfatal-errors -Wall -Wextra -Wpedantic -Wconversion -Wshadow -std=c++17 -g -ggdb -O0 -DDEBUG
-CXX_FLAGS = -Wfatal-errors -Wall -Wextra -std=c++17 -g -ggdb -O0 -DDEBUG
+CXX_FLAGS = -Wfatal-errors -Wall -Wextra -Wconversion -Wshadow -std=c++17
+#CXX_FLAGS += -g -ggdb -O0 -DDEBUG
 
 # Binary name
 BIN = pvmapper

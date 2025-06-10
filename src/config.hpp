@@ -2,6 +2,7 @@
 
 #include "logging.hpp"
 
+#include <cstdint>
 #include <regex>
 #include <string>
 #include <vector>
@@ -29,7 +30,7 @@ class AccessControl {
 
 class Config {
     public:
-        typedef std::pair<std::string, unsigned> Address;
+        typedef std::pair<std::string, uint16_t> Address;
 
         AccessControl           access_control;
         Log::Level              log_level = Log::Level::Error;

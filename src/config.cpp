@@ -18,7 +18,7 @@ void Config::parseFile(const std::string& path)
     auto toLower = [](const std::string& s) {
         std::string o;
         for (auto c: s) {
-            o += std::tolower(c);
+            o += static_cast<char>(std::tolower(c));
         }
         return o;
     };
@@ -70,7 +70,7 @@ void Config::parseFile(const std::string& path)
 
         } else if (std::regex_match(line, tokens, rePurgeDelay)) {
             auto tmp = std::atol(tokens[1].str().c_str());
-            if (tmp > 0) { purge_delay = tmp; }
+            if (tmp > 0) { purge_delay = static_cast<unsigned>(tmp); }
             else { fprintf(stderr, "ERROR: Invalid config value PURGE_DELAY=%s\n", tokens[1].str().c_str()); }
 
         } else if (std::regex_match(line, tokens, reCaListenAddr)) {
