@@ -52,6 +52,10 @@ void Dispatcher::caPvFound(const std::string& pvname, const std::string& iocIP, 
         ConnectionsManager::add(iocGuard);
     }
 
+    for (auto& searcher: m_caSearchers) {
+        searcher->removePV(pvname);
+    }
+
     auto& pv = m_connectedPVs[pvname];
     pv.ioc = iocGuard;
     pv.response = response;

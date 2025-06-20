@@ -33,7 +33,8 @@ class Searcher : public Connection {
 
     public:
         Searcher(const std::string& ip, uint16_t port, const std::shared_ptr<AbstractProtocol>& protocol, PvFoundCb& foundPvCb);
-        bool addPV(const std::string &pvname);
+        bool addPV(const std::string& pvname);
+        void removePV(const std::string& pvname);
         void processIncoming();
         void processOutgoing();
 };

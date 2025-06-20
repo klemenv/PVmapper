@@ -7,9 +7,6 @@
 #include <numeric>
 #include <vector>
 
-// Keep a list of searched PVs across all Searcher instances
-std::vector<std::string> g_searchedPvs;
-
 Searcher::Searcher(const std::string& ip, uint16_t port, const std::shared_ptr<AbstractProtocol>& protocol, PvFoundCb& foundPvCb)
     : m_protocol(protocol)
     , m_foundPvCb(foundPvCb)
@@ -66,10 +63,17 @@ bool Searcher::addPV(const std::string& pvname)
     pv.chanId = m_chanId++;
     m_searchedPvs.emplace_front(pv);
 
-    if (std::find(g_searchedPvs.begin(), g_searchedPvs.end(), pvname) == g_searchedPvs.end()) {
-        g_searchedPvs.emplace_back(pvname);
-    }
     return true;
+}
+
+void Searcher::removePV(const std::string& pvname)
+{
+    for (auto it = m_searchedPvs.begin(); it != m_searchedPvs.end(); it++) {
+        if (it->pvname == pvname) {
+            m_searchedPvs.erase(it);
+            return;
+        }
+    }
 }
 
 void Searcher::processIncoming()
@@ -106,11 +110,6 @@ void Searcher::processIncoming()
 
                     m_searchedPvs.erase(std::next(it).base());
 
-                    auto jt = std::find(g_searchedPvs.begin(), g_searchedPvs.end(), pvname);
-                    if (jt != g_searchedPvs.end()) {
-                        g_searchedPvs.erase(jt);
-                    }
-
                     break;
                 }
             }
@@ -128,12 +127,6 @@ void Searcher::processOutgoing()
     // Stop at the first PV of which the search time is in the future
     while (m_searchedPvs.empty() == false && m_searchedPvs.front().nextSearch < now) {
         auto& pv = m_searchedPvs.front();
-
-        // Check whether some other Searcher found the PV
-        if (std::find(g_searchedPvs.begin(), g_searchedPvs.end(), pv.pvname) == g_searchedPvs.end()) {
-            m_searchedPvs.pop_front();
-            continue;
-        }
 
         // Add to the list of PVs to be searched for this time
         pvs.emplace_back(pv.chanId, pv.pvname);
