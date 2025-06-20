@@ -52,6 +52,7 @@ bool Searcher::addPV(const std::string& pvname)
     for (auto& pv: m_searchedPvs) {
         if (pv.pvname == pvname) {
             // We're already searching for this PV
+            pv.lastSearched = std::chrono::steady_clock::now();
             return false;
         }
     }
@@ -158,4 +159,18 @@ void Searcher::processOutgoing()
 
     // Put the PVs to be retried back to the beginning of the list
     m_searchedPvs.splice(m_searchedPvs.begin(), retries, retries.begin(), retries.end());
+}
+
+void Searcher::purgePVs(unsigned maxtime)
+{
+    for (auto it = m_searchedPvs.begin(); it != m_searchedPvs.end();) {
+        auto diff = std::chrono::steady_clock::now() - it->lastSearched;
+        auto duration = std::chrono::duration_cast<std::chrono::seconds>(diff).count();
+        if (duration > maxtime) {
+            LOG_VERBOSE("Purged ", it->pvname, ", last searched ", duration, " seconds ago");
+            it = m_searchedPvs.erase(it);
+        } else {
+            it++;
+        }
+    }
 }

@@ -12,9 +12,6 @@ class Dispatcher {
         typedef std::pair<std::string, uint16_t> Address;
 
         struct PvInfo {
-            /* Timestamp when last client searched for this PV, used by book-keeping */
-            std::chrono::steady_clock::time_point lastSearched;
-
             /* Pointer to the IOC structure (may be empty) to determine IOC status.
              * This is shared by all PVs residing on the same IOC and allows for quick
              * determination if the PV is valid or not. When IOC disconnects, its

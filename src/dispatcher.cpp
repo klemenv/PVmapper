@@ -59,7 +59,6 @@ void Dispatcher::caPvFound(const std::string& pvname, const std::string& iocIP, 
     auto& pv = m_connectedPVs[pvname];
     pv.ioc = iocGuard;
     pv.response = response;
-    pv.lastSearched = std::chrono::steady_clock::now();
 }
 
 std::vector<unsigned char> Dispatcher::caPvSearched(const std::string &pvname, const std::string &clientIP, uint16_t clientPort)
@@ -125,6 +124,8 @@ void Dispatcher::run(double timeout)
     auto diff = (std::chrono::steady_clock::now() - m_lastPurge);
     auto duration = std::chrono::duration_cast<std::chrono::seconds>(diff).count();
     if (duration > m_config.purge_delay) {
-        // TODO: searchers purge
+        for (auto& searcher: m_caSearchers) {
+            searcher->purgePVs(m_config.purge_delay);
+        }
     }
 }

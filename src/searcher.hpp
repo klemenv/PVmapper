@@ -18,6 +18,7 @@ class Searcher : public Connection {
             uint32_t chanId;
             std::string pvname;
             std::chrono::steady_clock::time_point nextSearch;
+            std::chrono::steady_clock::time_point lastSearched; // Last time any client searched for this PV, used for book-keeping
             uint32_t retries = 0;
         };
 
@@ -37,4 +38,5 @@ class Searcher : public Connection {
         void removePV(const std::string& pvname);
         void processIncoming();
         void processOutgoing();
+        void purgePVs(unsigned maxtime);
 };
