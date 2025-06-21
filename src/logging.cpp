@@ -55,6 +55,7 @@ namespace Log {
             static char ident[80] = {0};
             id.copy(ident, sizeof(ident - 1));
             openlog(ident, LOG_CONS, facility);
+            _syslog = true;
         }
     };
 
