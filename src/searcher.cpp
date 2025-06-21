@@ -61,6 +61,7 @@ bool Searcher::addPV(const std::string& pvname)
     SearchedPV pv;
     pv.pvname = pvname;
     pv.nextSearch = std::chrono::steady_clock::now();
+    pv.lastSearched = std::chrono::steady_clock::now();
     pv.chanId = m_chanId++;
     m_searchedPvs.emplace_front(pv);
 
