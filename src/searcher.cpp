@@ -106,10 +106,10 @@ void Searcher::processIncoming()
                 if (it->chanId == chanId) {
                     auto pvname = it->pvname;
 
+                    m_searchedPvs.erase(std::next(it).base());
+
                     LOG_VERBOSE("Found ", pvname, " on ", iocIp, ":", iocPort);
                     m_foundPvCb(pvname, iocIp, iocPort, rsp);
-
-                    m_searchedPvs.erase(std::next(it).base());
 
                     break;
                 }
