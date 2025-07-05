@@ -4,7 +4,7 @@
 #include <fcntl.h>
 #include <unistd.h>
 
-IocGuard::IocGuard(const std::string& iocIp, uint16_t iocPort, const std::shared_ptr<AbstractProtocol>& protocol, DisconnectCb& disconnectCb)
+IocGuard::IocGuard(const std::string& iocIp, uint16_t iocPort, const std::shared_ptr<Protocol>& protocol, DisconnectCb& disconnectCb)
     : m_protocol(protocol)
     , m_disconnectCb(disconnectCb)
     , m_ip(iocIp)

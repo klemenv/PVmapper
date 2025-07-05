@@ -20,7 +20,7 @@ class Dispatcher {
             std::shared_ptr<IocGuard> ioc;
 
             /* Raw packet response from the IOC, returned to the client */
-            std::vector<unsigned char> response;
+            Protocol::Bytes response;
         };
 
         enum class Proto {
@@ -39,8 +39,8 @@ class Dispatcher {
         void addSearcher(const std::string& ip, uint16_t port, Proto proto);
 
         void iocDisconnected(const std::string& iocIP, uint16_t port);
-        void caPvFound(const std::string& pvname, const std::string& iocIP, uint16_t iocPort, const std::vector<unsigned char>& response);
-        std::vector<unsigned char> caPvSearched(const std::string &pvname, const std::string &clientIP, uint16_t clientPort);
+        void caPvFound(const std::string& pvname, const std::string& iocIP, uint16_t iocPort, const Protocol::Bytes& response);
+        Protocol::Bytes caPvSearched(const std::string &pvname, const std::string &clientIP, uint16_t clientPort);
 
     public:
         Dispatcher(const Config& config);

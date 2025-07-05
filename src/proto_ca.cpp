@@ -15,10 +15,10 @@ struct Header {
     uint32_t param2;
 };
 
-std::vector<unsigned char> ChannelAccess::createEchoRequest(bool includeVersion)
+Protocol::Bytes ChannelAccess::createEchoRequest(bool includeVersion)
 {
     size_t n = (includeVersion ? 2 : 1);
-    std::vector<unsigned char> buffer(n * sizeof(Header), 0);
+    Protocol::Bytes buffer(n * sizeof(Header), 0);
     auto hdr = reinterpret_cast<Header *>(buffer.data());
     if (includeVersion == true) {
         hdr->command = ::htons(CMD_VERSION);
@@ -33,8 +33,8 @@ std::vector<unsigned char> ChannelAccess::createEchoRequest(bool includeVersion)
     return buffer;
 }
 
-std::pair< std::vector<unsigned char>, uint16_t> ChannelAccess::createSearchRequest(const std::vector<std::pair<uint32_t, std::string>>& pvs) {
-    std::vector<unsigned char> buffer(sizeof(Header));
+std::pair<Protocol::Bytes, uint16_t> ChannelAccess::createSearchRequest(const std::vector<std::pair<uint32_t, std::string>>& pvs) {
+    Protocol::Bytes buffer(sizeof(Header), 0);
 
     auto hdr = reinterpret_cast<Header *>(buffer.data());
     hdr->command = ::htons(CMD_VERSION);
@@ -73,13 +73,13 @@ std::pair< std::vector<unsigned char>, uint16_t> ChannelAccess::createSearchRequ
     return std::make_pair(buffer, nPvs);
 }
 
-bool ChannelAccess::updateSearchReply(std::vector<unsigned char> &buffer, uint32_t chanId)
+bool ChannelAccess::updateSearchReply(Bytes& reply, uint32_t chanId)
 {
     size_t offset = 0;
     bool updated = false;
 
-    while ((offset + sizeof(Header)) <= buffer.size()) {
-        auto hdr = reinterpret_cast<Header*>(buffer.data() + offset);
+    while ((offset + sizeof(Header)) <= reply.size()) {
+        auto hdr = reinterpret_cast<Header*>(reply.data() + offset);
         auto command = ::ntohs(hdr->command);
         if (command == CMD_SEARCH) {
             hdr->param2 = ::htonl(chanId);
@@ -91,13 +91,13 @@ bool ChannelAccess::updateSearchReply(std::vector<unsigned char> &buffer, uint32
     return updated;
 }
 
-bool ChannelAccess::updateSearchReply(std::vector<unsigned char> &buffer, const std::string& iocIp, uint16_t iocPort)
+bool ChannelAccess::updateSearchReply(Protocol::Bytes& reply, const std::string& iocIp, uint16_t iocPort)
 {
     size_t offset = 0;
     bool updated = false;
 
-    while ((offset + sizeof(Header)) <= buffer.size()) {
-        auto hdr = reinterpret_cast<Header*>(buffer.data() + offset);
+    while ((offset + sizeof(Header)) <= reply.size()) {
+        auto hdr = reinterpret_cast<Header*>(reply.data() + offset);
         auto command = ::ntohs(hdr->command);
         if (command == CMD_SEARCH) {
             hdr->dataType = ::htons(iocPort);
@@ -110,7 +110,7 @@ bool ChannelAccess::updateSearchReply(std::vector<unsigned char> &buffer, const 
     return updated;
 }
 
-std::vector<std::pair<uint32_t, std::string>> ChannelAccess::parseSearchRequest(const std::vector<unsigned char>& buffer) {
+std::vector<std::pair<uint32_t, std::string>> ChannelAccess::parseSearchRequest(const Protocol::Bytes& buffer) {
     std::vector<std::pair<uint32_t, std::string>> pvs;
     size_t offset = 0;
 
@@ -142,9 +142,9 @@ std::vector<std::pair<uint32_t, std::string>> ChannelAccess::parseSearchRequest(
     return pvs;
 }
 
-std::vector<std::pair<uint32_t, std::vector<unsigned char>>> ChannelAccess::parseSearchResponse(const std::vector<unsigned char>& buffer)
+std::vector<std::pair<uint32_t, Protocol::Bytes>> ChannelAccess::parseSearchResponse(const Protocol::Bytes& buffer)
 {
-    std::vector<std::pair<uint32_t, std::vector<unsigned char>>> searches;
+    std::vector<std::pair<uint32_t, Protocol::Bytes>> searches;
 
     const Header* version = nullptr;
     size_t offset = 0;
@@ -158,7 +158,7 @@ std::vector<std::pair<uint32_t, std::vector<unsigned char>>> ChannelAccess::pars
         } else if (command == CMD_SEARCH && (offset + sizeof(Header) + payloadLen) <= buffer.size()) {
             if (payloadLen == 8 && hdr->dataCount == 0) {
                 uint32_t chanId = ::ntohl(hdr->param2);
-                std::vector<unsigned char> rsp;
+                Protocol::Bytes rsp;
                 if (version) {
                     auto ver = reinterpret_cast<const char *>(version);
                     rsp.assign(ver, ver + sizeof(Header));
@@ -176,7 +176,7 @@ std::vector<std::pair<uint32_t, std::vector<unsigned char>>> ChannelAccess::pars
     return searches;
 }
 
-std::pair<std::string, uint16_t> ChannelAccess::parseIocAddr(const std::string& ip, [[maybe_unused]] uint16_t udpPort, const std::vector<unsigned char>& buffer)
+std::pair<std::string, uint16_t> ChannelAccess::parseIocAddr(const std::string& ip, [[maybe_unused]] uint16_t udpPort, const Protocol::Bytes& buffer)
 {
     size_t offset = 0;
     while ((offset + sizeof(Header)) <= buffer.size()) {

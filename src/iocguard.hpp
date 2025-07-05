@@ -11,7 +11,7 @@ class IocGuard : public Connection {
     public:
         typedef std::function<void(const std::string& iocIP, uint16_t iocPort)> DisconnectCb;
     private:
-        std::shared_ptr<AbstractProtocol> m_protocol;
+        std::shared_ptr<Protocol> m_protocol;
         DisconnectCb m_disconnectCb;
         std::string m_ip;
         uint16_t m_port;
@@ -21,7 +21,7 @@ class IocGuard : public Connection {
 
         void sendHeartBeat();
     public:
-        IocGuard(const std::string& iocIp, uint16_t iocPort, const std::shared_ptr<AbstractProtocol>& protocol, DisconnectCb& disconnectCb);
+        IocGuard(const std::string& iocIp, uint16_t iocPort, const std::shared_ptr<Protocol>& protocol, DisconnectCb& disconnectCb);
         ~IocGuard();
         void processIncoming();
         void processOutgoing();

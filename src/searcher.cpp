@@ -7,7 +7,7 @@
 #include <numeric>
 #include <vector>
 
-Searcher::Searcher(const std::string& ip, uint16_t port, const std::shared_ptr<AbstractProtocol>& protocol, PvFoundCb& foundPvCb)
+Searcher::Searcher(const std::string& ip, uint16_t port, const std::shared_ptr<Protocol>& protocol, PvFoundCb& foundPvCb)
     : m_protocol(protocol)
     , m_foundPvCb(foundPvCb)
     , m_searchIp(ip)

@@ -11,7 +11,7 @@
 
 class Searcher : public Connection {
     public:
-        typedef std::function<void(const std::string& pvname, const std::string& iocIp, uint16_t iocPort, const std::vector<unsigned char>& response)> PvFoundCb;
+        typedef std::function<void(const std::string& pvname, const std::string& iocIp, uint16_t iocPort, const Protocol::Bytes& response)> PvFoundCb;
 
     private:
         struct SearchedPV {
@@ -24,7 +24,7 @@ class Searcher : public Connection {
 
         uint32_t m_searchInterval = 10;
         uint32_t m_chanId = 0;
-        std::shared_ptr<AbstractProtocol> m_protocol;
+        std::shared_ptr<Protocol> m_protocol;
         std::list<SearchedPV> m_searchedPvs;
         PvFoundCb m_foundPvCb;
         std::string m_searchIp;
@@ -33,7 +33,7 @@ class Searcher : public Connection {
         uint32_t getNextChanId();
 
     public:
-        Searcher(const std::string& ip, uint16_t port, const std::shared_ptr<AbstractProtocol>& protocol, PvFoundCb& foundPvCb);
+        Searcher(const std::string& ip, uint16_t port, const std::shared_ptr<Protocol>& protocol, PvFoundCb& foundPvCb);
         bool addPV(const std::string& pvname);
         void removePV(const std::string& pvname);
         void processIncoming();

@@ -33,7 +33,7 @@ void Dispatcher::iocDisconnected(const std::string& iocIP, uint16_t iocPort)
     }
 }
 
-void Dispatcher::caPvFound(const std::string& pvname, const std::string& iocIP, uint16_t iocPort, const std::vector<unsigned char>& response)
+void Dispatcher::caPvFound(const std::string& pvname, const std::string& iocIP, uint16_t iocPort, const Protocol::Bytes& response)
 {
     std::shared_ptr<IocGuard> iocGuard;
     auto it = m_iocs.find(std::make_pair(iocIP, iocPort));
@@ -61,7 +61,7 @@ void Dispatcher::caPvFound(const std::string& pvname, const std::string& iocIP, 
     pv.response = response;
 }
 
-std::vector<unsigned char> Dispatcher::caPvSearched(const std::string &pvname, const std::string &clientIP, uint16_t clientPort)
+Protocol::Bytes Dispatcher::caPvSearched(const std::string &pvname, const std::string &clientIP, uint16_t clientPort)
 {
     try {
         auto pv = m_connectedPVs.at(pvname);
@@ -85,7 +85,7 @@ std::vector<unsigned char> Dispatcher::caPvSearched(const std::string &pvname, c
     } else {
         LOG_INFO("Client ", clientIP, ":", clientPort, " searched for ", pvname, ": not in cache, search in progress");
     }
-    return std::vector<unsigned char>();
+    return Protocol::Bytes();
 }
 
 void Dispatcher::addListener(const std::string& ip, uint16_t port, Dispatcher::Proto proto)
