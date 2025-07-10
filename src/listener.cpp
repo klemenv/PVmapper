@@ -44,13 +44,6 @@ void Listener::processIncoming() {
     struct sockaddr_in remoteAddr;
     socklen_t remoteAddrLen = sizeof(remoteAddr);
 
-    // Make a little cache for all packets for a given client
-    // so that we can send multiple replies at once
-    auto comp = [](const struct sockaddr_in& l, const struct sockaddr_in& r) {
-        return (l.sin_addr.s_addr < r.sin_addr.s_addr || (l.sin_addr.s_addr == r.sin_addr.s_addr && l.sin_port < r.sin_port));
-    };
-    std::map<struct sockaddr_in, std::vector<Protocol::Bytes>, decltype(comp)> packets(comp);
-
     auto recvd = ::recvfrom(m_sock, buffer, sizeof(buffer), 0, reinterpret_cast<sockaddr *>(&remoteAddr), &remoteAddrLen);
     while (recvd > 0) {
         char clientIp[20] = {0};
@@ -66,22 +59,12 @@ void Listener::processIncoming() {
                 auto rsp = m_searchPvCb(pvname, clientIp, clientPort);
                 if (rsp.empty() == false) {
                     m_protocol->updateSearchReply(rsp, chanId);
-                    packets[remoteAddr].emplace_back(rsp);
+                    ::sendto(m_sock, rsp.data(), rsp.size(), 0, reinterpret_cast<sockaddr *>(&remoteAddr), remoteAddrLen);
                 }
             }
         }
 
         recvd = ::recvfrom(m_sock, buffer, sizeof(buffer), 0, reinterpret_cast<sockaddr *>(&remoteAddr), &remoteAddrLen);
-    }
-
-    // Replies from the same IOC can be combined into a single transmission
-    // At least for CA clients, this seems to improve client's performance
-    // significantly.
-    for (const auto& [client, replies]: packets) {
-        auto combined = m_protocol->combineSearchReplies(replies);
-        for (auto& reply: combined) {
-            ::sendto(m_sock, reply.data(), reply.size(), 0, reinterpret_cast<const sockaddr *>(&client), sizeof(client));
-        }
     }
 }
 

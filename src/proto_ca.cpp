@@ -1,7 +1,6 @@
 #include "proto_ca.hpp"
 
 #include <arpa/inet.h>
-#include <map>
 
 static uint16_t const CMD_VERSION =  0x0;
 static uint16_t const CMD_SEARCH  =  0x6;
@@ -109,50 +108,6 @@ bool ChannelAccess::updateSearchReply(Protocol::Bytes& reply, const std::string&
     }
 
     return updated;
-}
-
-std::vector<Protocol::Bytes> ChannelAccess::combineSearchReplies(const std::vector<Protocol::Bytes>& replies)
-{
-    auto hashIoc = [](const Header* header) {
-        return std::to_string(header->param1) + ":" + std::to_string(header->dataType);
-    };
-    std::map<std::string, Bytes> iocReplies;
-
-    for (const auto& reply: replies) {
-        Bytes version;
-        Bytes tmp;
-        size_t offset = 0;
-        std::string ioc;
-
-        // Split version and search packets into separate variables
-        while ((offset + sizeof(Header)) <= reply.size()) {
-            auto hdr = reinterpret_cast<const Header*>(reply.data() + offset);
-            auto command = ::ntohs(hdr->command);
-            if (command == CMD_VERSION) {
-                version = reply.substr(offset, sizeof(Header));
-            } else if (command == CMD_SEARCH) {
-                tmp += reply.substr(offset, sizeof(Header) + ::ntohs(hdr->payloadLen));
-                if (ioc.empty()) {
-                    ioc = hashIoc(hdr);
-                }
-            }
-            offset += sizeof(Header) + ::ntohs(hdr->payloadLen);
-        }
-
-        // Combine searches from the same IOC - must be using the same CA version
-        if (iocReplies[ioc].empty()) {
-            iocReplies[ioc] = version + tmp;
-        } else {
-            iocReplies[ioc] += tmp;
-        }
-    }
-
-    // Remove IOC info and return vector of combined replies from each IOC
-    std::vector<Bytes> output;
-    for (auto& [ioc, rpls]: iocReplies) {
-        output.emplace_back(rpls);
-    }
-    return output;
 }
 
 std::vector<std::pair<uint32_t, std::string>> ChannelAccess::parseSearchRequest(const Protocol::Bytes& buffer) {
