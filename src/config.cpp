@@ -11,6 +11,7 @@ void Config::parseFile(const std::string& path)
     std::regex reLogLevel    ("^[ \t]*LOG_LEVEL[= \t]([^# \t]*)[ \t]*(#.*)?$");
     std::regex reLogFacility ("^[ \t]*SYSLOG_FACILITY[= \t]([^# \t]*)[ \t]*(#.*)?$");
     std::regex reLogId       ("^[ \t]*SYSLOG_ID[= \t]([^# \t]*)[ \t]*(#.*)?$");
+    std::regex reSearchInt   ("^[ \t]*SEARCH_INTERVAL[= \t]+([0-9]+)[ \t]*(#.*)?$");
     std::regex rePurgeDelay  ("^[ \t]*PURGE_DELAY[= \t]+([0-9]+)[ \t]*(#.*)?$");
     std::regex reCaListenAddr("^[ \t]*CA_LISTEN_ADDRESS[= \t]+([0-9]{1,3}(\\.[0-9]{1,3}){3})(:([0-9]{1,5}))?");
     std::regex reCaSearchAddr("^[ \t]*CA_SEARCH_ADDRESS[= \t]+([0-9]{1,3}(\\.[0-9]{1,3}){3})(:([0-9]{1,5}))?");
@@ -67,6 +68,11 @@ void Config::parseFile(const std::string& path)
 
         } else if (std::regex_match(line, tokens, reLogId)) {
             syslog_id = tokens[1].str();
+
+        } else if (std::regex_match(line, tokens, reSearchInt)) {
+            auto tmp = std::atol(tokens[1].str().c_str());
+            if (tmp > 0) { search_interval = static_cast<unsigned>(tmp); }
+            else { fprintf(stderr, "ERROR: Invalid config value SEARCH_INTERVAL=%s\n", tokens[1].str().c_str()); }
 
         } else if (std::regex_match(line, tokens, rePurgeDelay)) {
             auto tmp = std::atol(tokens[1].str().c_str());

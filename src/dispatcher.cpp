@@ -17,7 +17,7 @@ Dispatcher::Dispatcher(const Config& config)
 
     for (auto& addr: config.ca_search_addresses) {
         try {
-            addSearcher(addr.first, addr.second, Dispatcher::Proto::CHANNEL_ACCESS);
+            addSearcher(addr.first, addr.second, Dispatcher::Proto::CHANNEL_ACCESS, config.search_interval);
         } catch (SocketException& e) {
             fprintf(stderr, "Failed to initilize Searcher(%s, %u): %s\n", addr.first.c_str(), addr.second, e.what());
             return;
@@ -103,14 +103,14 @@ void Dispatcher::addListener(const std::string& ip, uint16_t port, Dispatcher::P
     }
 }
 
-void Dispatcher::addSearcher(const std::string& ip, uint16_t port, Dispatcher::Proto proto)
+void Dispatcher::addSearcher(const std::string& ip, uint16_t port, Dispatcher::Proto proto, uint32_t searchInterval)
 {
     using namespace std::placeholders;
     std::shared_ptr<Searcher> searcher;
 
     if (proto == Proto::CHANNEL_ACCESS) {
         Searcher::PvFoundCb pvFoundCb = std::bind(&Dispatcher::caPvFound, this, _1, _2, _3, _4);
-        searcher.reset(new Searcher(ip, port, m_caProto, pvFoundCb));
+        searcher.reset(new Searcher(ip, port, searchInterval, m_caProto, pvFoundCb));
     }
     if (searcher) {
         m_caSearchers.emplace_back(searcher);

@@ -36,6 +36,7 @@ class Config {
         Log::Level              log_level = Log::Level::Error;
         std::string             syslog_facility; // leave empty to log to file
         std::string             syslog_id = "PVmapper";
+        unsigned                search_interval = 10;
         unsigned                purge_delay = 600;
         std::vector<Address>    ca_listen_addresses;
         std::vector<Address>    ca_search_addresses;

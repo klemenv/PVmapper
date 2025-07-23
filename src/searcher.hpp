@@ -33,7 +33,7 @@ class Searcher : public Connection {
         uint32_t getNextChanId();
 
     public:
-        Searcher(const std::string& ip, uint16_t port, const std::shared_ptr<Protocol>& protocol, PvFoundCb& foundPvCb);
+        Searcher(const std::string& ip, uint16_t port, uint32_t searchInterval, const std::shared_ptr<Protocol>& protocol, PvFoundCb& foundPvCb);
         bool addPV(const std::string& pvname);
         void removePV(const std::string& pvname);
         void processIncoming();
