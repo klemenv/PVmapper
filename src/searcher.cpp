@@ -136,10 +136,11 @@ void Searcher::processOutgoing()
 
         // Unlike EPICS base, use a static search interval after first 3 tries
         if (++pv.retries > 3) {
-            pv.nextSearch = std::chrono::steady_clock::now() + std::chrono::seconds(m_searchInterval);
-
-            m_searchedPvs.splice(m_searchedPvs.end(), m_searchedPvs, m_searchedPvs.begin());
+            // This will move PV to the end of the m_searchInterval list
+            scheduleNextSearch(pv.pvname, m_searchInterval);
         } else {
+            // We can't insert the entry back to the front or we would loop forever
+            // so we move it to a temporary list
             retries.splice(retries.end(), m_searchedPvs, m_searchedPvs.begin());
         }
     }
@@ -175,4 +176,37 @@ void Searcher::purgePVs(unsigned maxtime)
             it++;
         }
     }
+}
+
+void Searcher::scheduleNextSearch(const std::string& pvname, uint32_t delay)
+{
+    // Find an iterator to the element in the list
+    auto it = std::find_if(m_searchedPvs.begin(), m_searchedPvs.end(), [&pvname](auto &el) {
+        return (el.pvname == pvname);
+    });
+
+    if (it == m_searchedPvs.end()) return;
+
+    // Increment the timestamp
+    it->nextSearch += std::chrono::seconds(delay);
+
+    // Cache the nextSearch timestamp to be used later during the iteration
+    auto nextSearch = it->nextSearch;
+
+    // Move the element to the end of the list, hopefully that's the final position
+    m_searchedPvs.splice(m_searchedPvs.end(), m_searchedPvs, it);
+
+    // Find insertion point from the back
+    it = m_searchedPvs.end();
+    while (it != m_searchedPvs.begin()) {
+        --it;
+        if (it->nextSearch <= nextSearch) {
+            m_searchedPvs.splice(std::next(it), m_searchedPvs, std::prev(m_searchedPvs.end()));
+            return;
+        }
+        int a = 1;
+    }
+
+    // If it's the smallest element, move it to the front
+    m_searchedPvs.splice(m_searchedPvs.begin(), m_searchedPvs, std::prev(m_searchedPvs.end()));
 }

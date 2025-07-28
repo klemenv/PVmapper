@@ -32,6 +32,18 @@ class Searcher : public Connection {
 
         uint32_t getNextChanId();
 
+        /**
+         * Schedule the next search of the PV
+         * 
+         * Takes the PV from the m_searchedPvs, increments the SearchedPV.nextSearch 
+         * timestamp by the specified delay, and inserts it back to the sorted list.
+         * The algorithm uses the move semantics for efficiency, and works best
+         * when the PV is in the front of the list and after incrementing the
+         * timestamp, it should be inserted at the end of the list. In this case the
+         * the performance is O(1). Luckily that's how the function is used.
+         */
+        void scheduleNextSearch(const std::string& pvname, uint32_t delay);
+
     public:
         Searcher(const std::string& ip, uint16_t port, uint32_t searchInterval, const std::shared_ptr<Protocol>& protocol, PvFoundCb& foundPvCb);
         bool addPV(const std::string& pvname);
