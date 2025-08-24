@@ -11,6 +11,9 @@ namespace Log {
     };
     void init(const std::string &id, const std::string &syslogFacility, Level lvl);
 
+    Level getLogLevel();
+    void setLogLevel(Level lvl);
+
     template<typename... Args>
     void write(Level lvl, const Args&... args)
     {

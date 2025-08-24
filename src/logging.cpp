@@ -1,5 +1,6 @@
 #include "logging.hpp"
 
+#include <chrono>
 #include <iostream>
 #include <syslog.h>
 
@@ -59,13 +60,29 @@ namespace Log {
         }
     };
 
+    Level getLogLevel()
+    {
+        return _level;
+    }
+
+    void setLogLevel(Level lvl)
+    {
+        _level = lvl;
+    }
+
     void write(Level lvl, std::ostringstream &msg)
     {
         if (lvl >= _level) {
             if (_syslog == true) {
                 syslog(level2prio(lvl), "%s", msg.str().c_str());
             } else {
-                printf("%s: %s\n", level2str(lvl), msg.str().c_str());
+                const auto now = std::chrono::system_clock::now();
+                auto millis = (now.time_since_epoch().count() / 1000000) % 1000;
+                const std::time_t now_t = std::chrono::system_clock::to_time_t(now);
+                auto timeinfo = std::localtime(&now_t);
+                char buffer[64] = {0};
+                strftime(buffer, sizeof(buffer) - 1, "%Y-%m-%d %H:%M:%S", timeinfo);
+                printf("%s:%03d %s: %s\n", buffer, (int)millis, level2str(lvl), msg.str().c_str());
             }
         }
     }

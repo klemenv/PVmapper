@@ -170,7 +170,7 @@ void Searcher::purgePVs(unsigned maxtime)
         auto diff = std::chrono::steady_clock::now() - it->lastSearched;
         auto duration = std::chrono::duration_cast<std::chrono::seconds>(diff).count();
         if (duration > maxtime) {
-            LOG_VERBOSE("Purged ", it->pvname, ", last searched ", duration, " seconds ago");
+            LOG_INFO("Purged ", it->pvname, ", last searched ", duration, " seconds ago");
             it = m_searchedPvs.erase(it);
         } else {
             it++;
@@ -204,7 +204,6 @@ void Searcher::scheduleNextSearch(const std::string& pvname, uint32_t delay)
             m_searchedPvs.splice(std::next(it), m_searchedPvs, std::prev(m_searchedPvs.end()));
             return;
         }
-        int a = 1;
     }
 
     // If it's the smallest element, move it to the front
