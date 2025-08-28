@@ -53,9 +53,16 @@ void Listener::processIncoming() {
         LOG_DEBUG("Received UDP packet (", recvd, " bytes) from ", clientIp, ":", clientPort, ", potential PV(s) search request");
 
         auto pvs = m_protocol->parseSearchRequest({buffer, buffer + recvd});
-        for (const auto& [chanId, pvname]: pvs) {
+        for (const auto& [chanId, pvname_]: pvs) {
 
-            if (checkAccessControl(pvname, clientIp, clientPort)) {
+            // Remove the field part from pvname, they all point to the same record on the same IOC
+            auto pvname = pvname_;
+            auto field = pvname.find('.');
+            if (field != std::string::npos) {
+                pvname.erase(field);
+            }
+
+            if (!pvname.empty() && checkAccessControl(pvname, clientIp, clientPort)) {
                 auto rsp = m_searchPvCb(pvname, clientIp, clientPort);
                 if (rsp.empty() == false) {
                     m_protocol->updateSearchReply(rsp, chanId);
