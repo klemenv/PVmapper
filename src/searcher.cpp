@@ -164,18 +164,22 @@ void Searcher::processOutgoing()
     m_searchedPvs.splice(m_searchedPvs.begin(), retries, retries.begin(), retries.end());
 }
 
-void Searcher::purgePVs(unsigned maxtime)
+std::pair<uint32_t, uint32_t> Searcher::purgePVs(unsigned maxtime)
 {
+    unsigned nPurged = 0;
     for (auto it = m_searchedPvs.begin(); it != m_searchedPvs.end();) {
         auto diff = std::chrono::steady_clock::now() - it->lastSearched;
         auto duration = std::chrono::duration_cast<std::chrono::seconds>(diff).count();
         if (duration > maxtime) {
-            LOG_INFO("Purged ", it->pvname, ", last searched ", duration, " seconds ago");
+            LOG_VERBOSE("Purged ", it->pvname, ", last searched ", duration, " seconds ago");
             it = m_searchedPvs.erase(it);
+            nPurged++;
         } else {
             it++;
         }
     }
+
+    return std::make_pair(nPurged, m_searchedPvs.size());
 }
 
 void Searcher::scheduleNextSearch(const std::string& pvname, uint32_t delay)

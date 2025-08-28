@@ -50,5 +50,5 @@ class Searcher : public Connection {
         void removePV(const std::string& pvname);
         void processIncoming();
         void processOutgoing();
-        void purgePVs(unsigned maxtime);
+        std::pair<uint32_t, uint32_t> purgePVs(unsigned maxtime);
 };

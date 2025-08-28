@@ -124,10 +124,14 @@ void Dispatcher::run(double timeout)
     auto diff = (std::chrono::steady_clock::now() - m_lastPurge);
     auto duration = std::chrono::duration_cast<std::chrono::seconds>(diff).count();
     if (duration > m_config.purge_delay) {
-        LOG_INFO("Purging cache PVs not queried in the last ", m_config.purge_delay, " seconds");
+        uint32_t nPurged = 0;
+        uint32_t nRemain = 0;
         for (auto& searcher: m_caSearchers) {
-            searcher->purgePVs(m_config.purge_delay);
+            auto [p, r] = searcher->purgePVs(m_config.purge_delay);
+            nPurged += p;
+            nRemain += r;
         }
         m_lastPurge = std::chrono::steady_clock::now();
+        LOG_INFO("Purged ", nPurged, " PVs, still searching for ", nRemain, " PVs, ", m_connectedPVs.size(), " PVs are connected");
     }
 }
