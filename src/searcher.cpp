@@ -1,3 +1,4 @@
+#include "dnscache.hpp"
 #include "logging.hpp"
 #include "searcher.hpp"
 
@@ -93,7 +94,7 @@ void Searcher::processIncoming()
         // Decode TCP port from the response packet
         auto [_, iocPort] = m_protocol->parseIocAddr(iocIp, udpPort, {buffer, buffer+recvd});
 
-        LOG_DEBUG("Received UDP packet (", recvd, " bytes) from ", iocIp, ":", iocPort, ", potential PV(s) search response");
+        LOG_DEBUG("Received UDP packet (", recvd, " bytes) from ", DnsCache::resolveIP(iocIp), ":", iocPort, ", potential PV(s) search response");
 
         auto responses = m_protocol->parseSearchResponse({buffer, buffer+recvd});
         for (auto& [chanId, rsp]: responses) {
@@ -110,7 +111,7 @@ void Searcher::processIncoming()
 
                     m_searchedPvs.erase(std::next(it).base());
 
-                    LOG_VERBOSE("Found ", pvname, " on ", iocIp, ":", iocPort);
+                    LOG_VERBOSE("Found ", pvname, " on ", DnsCache::resolveIP(iocIp), ":", iocPort);
                     m_foundPvCb(pvname, iocIp, iocPort, rsp);
 
                     break;
@@ -153,7 +154,7 @@ void Searcher::processOutgoing()
         std::string tmp;
         std::for_each(pvs.begin(), pvs.begin()+nPvs, [&tmp](auto& it) { tmp += it.second + ","; });
         tmp.pop_back();
-        LOG_VERBOSE("Sending search request for ", tmp, " to ", m_searchIp, ":", m_searchPort);
+        LOG_VERBOSE("Sending search request for ", tmp, " to ", DnsCache::resolveIP(m_searchIp), ":", m_searchPort);
 
         ::sendto(m_sock, msg.data(), msg.size(), 0, reinterpret_cast<sockaddr *>(&m_addr), sizeof(sockaddr_in));
 

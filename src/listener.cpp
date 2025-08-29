@@ -1,3 +1,4 @@
+#include "dnscache.hpp"
 #include "listener.hpp"
 #include "logging.hpp"
 
@@ -50,7 +51,7 @@ void Listener::processIncoming() {
         ::inet_ntop(AF_INET, &remoteAddr.sin_addr, clientIp, sizeof(clientIp)-1);
         uint16_t clientPort = ::ntohs(remoteAddr.sin_port);
 
-        LOG_DEBUG("Received UDP packet (", recvd, " bytes) from ", clientIp, ":", clientPort, ", potential PV(s) search request");
+        LOG_DEBUG("Received UDP packet (", recvd, " bytes) from ", DnsCache::resolveIP(clientIp), ":", clientPort, ", potential PV(s) search request");
 
         auto pvs = m_protocol->parseSearchRequest({buffer, buffer + recvd});
         for (const auto& [chanId, pvname_]: pvs) {
@@ -92,7 +93,7 @@ bool Listener::checkAccessControl(const std::string& pvname_, const std::string&
             if (rule.action == AccessControl::ALLOW) {
                 break;
             } else if (rule.action == AccessControl::DENY) {
-                LOG_VERBOSE("Client ", client, ":", port, " searched for ", pvname, ": rejected due to '", rule.text, "' rule");
+                LOG_VERBOSE("Client ", DnsCache::resolveIP(client), ":", port, " searched for ", pvname, ": rejected due to '", rule.text, "' rule");
                 return false;
             }
         }
@@ -108,7 +109,7 @@ bool Listener::checkAccessControl(const std::string& pvname_, const std::string&
             if (rule.action == AccessControl::ALLOW) {
                 break;
             } else if (rule.action == AccessControl::DENY) {
-                LOG_VERBOSE("Client ", client, ":", port, " searched for ", pvname, ": rejected due to '", rule.text, "' rule");
+                LOG_VERBOSE("Client ", DnsCache::resolveIP(client), ":", port, " searched for ", pvname, ": rejected due to '", rule.text, "' rule");
                 return false;
             }
         }

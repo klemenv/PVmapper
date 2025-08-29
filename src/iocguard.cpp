@@ -1,3 +1,4 @@
+#include "dnscache.hpp"
 #include "logging.hpp"
 #include "iocguard.hpp"
 
@@ -60,16 +61,16 @@ void IocGuard::processIncoming()
     char buffer[4096];
     auto recvd = ::recv(m_sock, buffer, sizeof(buffer), 0);
     if (recvd > 0) {
-        LOG_VERBOSE("Received heart-beat response from IOC ", m_ip, ":", m_port);
+        LOG_VERBOSE("Received heart-beat response from IOC ", DnsCache::resolveIP(m_ip), ":", m_port);
         m_lastResponse = std::chrono::steady_clock::now();
     } else {
         ::close(m_sock);
         m_sock = -1;
         m_disconnectCb(m_ip, m_port);
         if (recvd == 0) {
-            LOG_INFO("IOC ", m_ip, ":", m_port, " appears to have closed socket, disconnecting...");
+            LOG_INFO("IOC ", DnsCache::resolveIP(m_ip), ":", m_port, " appears to have closed socket, disconnecting...");
         } else {
-            LOG_INFO("Error receiving data from IOC ", m_ip, ":", m_port, ", disconnecting...");
+            LOG_INFO("Error receiving data from IOC ", DnsCache::resolveIP(m_ip), ":", m_port, ", disconnecting...");
         }
     }
 }
@@ -89,14 +90,14 @@ void IocGuard::sendHeartBeat()
         if (m_lastRequest < m_lastResponse) {
             auto msg = m_protocol->createEchoRequest(false);
             if (::send(m_sock, msg.data(), msg.size(), 0) > 0) {
-                LOG_DEBUG("Sent heart-beat request to ", m_ip, ":", m_port);
+                LOG_DEBUG("Sent heart-beat request to ", DnsCache::resolveIP(m_ip), ":", m_port);
                 m_lastRequest = std::chrono::steady_clock::now();
                 return;
             } else {
-                LOG_INFO("Failed to send heart-beat to IOC ", m_ip, ":", m_port, ", disconnecting...");
+                LOG_INFO("Failed to send heart-beat to IOC ", DnsCache::resolveIP(m_ip), ":", m_port, ", disconnecting...");
             }
         } else {
-            LOG_INFO("Didn't receive last heart-beat response from IOC ", m_ip, ":", m_port, ", disconnecting...");
+            LOG_INFO("Didn't receive last heart-beat response from IOC ", DnsCache::resolveIP(m_ip), ":", m_port, ", disconnecting...");
         }
 
         ::close(m_sock);

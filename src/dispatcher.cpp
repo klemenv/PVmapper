@@ -1,4 +1,5 @@
 #include "dispatcher.hpp"
+#include "dnscache.hpp"
 #include "connmgr.hpp"
 
 Dispatcher::Dispatcher(const Config& config)
@@ -45,7 +46,7 @@ void Dispatcher::caPvFound(const std::string& pvname, const std::string& iocIP, 
         try {
             iocGuard.reset(new IocGuard(iocIP, iocPort, m_caProto, disconnectCb));
         } catch (SocketException& e) {
-            LOG_ERROR("Failed to create IOC ", iocIP, ":", iocPort, " monitoring connection: ", e.what());
+            LOG_ERROR("Failed to create IOC ", DnsCache::resolveIP(iocIP), ":", iocPort, " monitoring connection: ", e.what());
             return;
         }
         m_iocs[std::make_pair(iocIP, iocPort)] = iocGuard;
@@ -67,7 +68,7 @@ Protocol::Bytes Dispatcher::caPvSearched(const std::string &pvname, const std::s
         auto pv = m_connectedPVs.at(pvname);
         if (pv.ioc && pv.ioc->isConnected()) {
             const auto [iocIp, iocPort] = pv.ioc->getIocAddr();
-            LOG_INFO("Client ", clientIP, ":", clientPort, " searched for ", pvname, ": found in cache, redirecting to IOC ", iocIp, ":", iocPort);
+            LOG_INFO("Client ", DnsCache::resolveIP(clientIP), ":", clientPort, " searched for ", pvname, ": found in cache, redirecting to IOC ", DnsCache::resolveIP(iocIp), ":", iocPort);
             return pv.response;
         }
         // The IOC must got disconnected
@@ -81,9 +82,9 @@ Protocol::Bytes Dispatcher::caPvSearched(const std::string &pvname, const std::s
         }
     }
     if (added) {
-        LOG_INFO("Client ", clientIP, ":", clientPort, " searched for ", pvname, ": not in cache, started the search");
+        LOG_INFO("Client ", DnsCache::resolveIP(clientIP), ":", clientPort, " searched for ", pvname, ": not in cache, started the search");
     } else {
-        LOG_INFO("Client ", clientIP, ":", clientPort, " searched for ", pvname, ": not in cache, search in progress");
+        LOG_INFO("Client ", DnsCache::resolveIP(clientIP), ":", clientPort, " searched for ", pvname, ": not in cache, search in progress");
     }
     return Protocol::Bytes();
 }

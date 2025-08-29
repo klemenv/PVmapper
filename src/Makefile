@@ -2,6 +2,10 @@ CXX = g++
 CXX_FLAGS = -Wfatal-errors -Wall -Wextra -Wconversion -Wshadow -std=c++17
 #CXX_FLAGS += -g -ggdb -O0 -DDEBUG
 
+# Enable using resolv library for to obtain TTL for DNS records (only works on POSIX systems)
+CXX_FLAGS += -DUSE_LIB_RESOLVE
+LD_FLAGS = -lresolv
+
 # Binary name
 BIN = pvmapper
 # Put all auto generated stuff to this build dir.
@@ -21,7 +25,7 @@ $(BIN) : $(BUILD_DIR)/$(BIN)
 # Actual target of the binary - depends on all .o files.
 $(BUILD_DIR)/$(BIN) : $(OBJ)
 	@mkdir -p $(@D)
-	$(CXX) $(CXX_FLAGS) $^ -o $@
+	$(CXX) $(CXX_FLAGS) $^ -o $@ $(LD_FLAGS)
 
 # Include all .d files
 -include $(DEP)
