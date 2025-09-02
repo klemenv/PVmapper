@@ -8,8 +8,8 @@
 #include <numeric>
 #include <vector>
 
-Searcher::Searcher(const std::string& ip, uint16_t port, uint32_t searchInterval, const std::shared_ptr<Protocol>& protocol, PvFoundCb& foundPvCb)
-    : m_searchInterval(searchInterval)
+Searcher::Searcher(const std::string& ip, uint16_t port, const std::vector<uint32_t>& searchIntervals, const std::shared_ptr<Protocol>& protocol, PvFoundCb& foundPvCb)
+    : m_searchIntervals(searchIntervals)
     , m_protocol(protocol)
     , m_foundPvCb(foundPvCb)
     , m_searchIp(ip)
@@ -103,13 +103,14 @@ void Searcher::processIncoming()
             // nameserver is in between, so we need to set the IOC's IP in the packet.
             m_protocol->updateSearchReply(rsp, iocIp, iocPort);
 
-            // PVs searched last are the end of the list. Iterate backwards from the end
-            // because that's most likely to find the PV quicker
-            for (auto it = m_searchedPvs.rbegin(); it != m_searchedPvs.rend(); it++) {
+            // Most likely the PV exists all the time and the search reply
+            // will come back when the search intervals are small.
+            // In other words, those PVs will be at the beggining of the queue.
+            for (auto it = m_searchedPvs.begin(); it != m_searchedPvs.end(); it++) {
                 if (it->chanId == chanId) {
                     auto pvname = it->pvname;
 
-                    m_searchedPvs.erase(std::next(it).base());
+                    m_searchedPvs.erase(it);
 
                     LOG_VERBOSE("Found ", pvname, " on ", DnsCache::resolveIP(iocIp), ":", iocPort);
                     m_foundPvCb(pvname, iocIp, iocPort, rsp);
@@ -126,24 +127,32 @@ void Searcher::processOutgoing()
 {
     auto now = std::chrono::steady_clock::now();
     std::vector<std::pair<uint32_t, std::string>> pvs;
-    std::list<SearchedPV> retries;
+    std::list<std::pair<std::string, uint32_t>> intervals;
 
     // Stop at the first PV of which the search time is in the future
-    while (m_searchedPvs.empty() == false && m_searchedPvs.front().nextSearch < now) {
-        auto& pv = m_searchedPvs.front();
+    for (auto it = m_searchedPvs.begin(); it != m_searchedPvs.end() && it->nextSearch < now; it++) {
+        it->retries++;
 
         // Add to the list of PVs to be searched for this time
-        pvs.emplace_back(pv.chanId, pv.pvname);
+        pvs.emplace_back(it->chanId, it->pvname);
 
-        // Unlike EPICS base, use a static search interval after first 3 tries
-        if (++pv.retries > 3) {
-            // This will move PV to the end of the m_searchInterval list
-            scheduleNextSearch(pv.pvname, m_searchInterval);
+        // Calculate next search interval
+        uint32_t interval;
+        if (it->retries < 3) {
+            interval = 0;
+        } else if ((it->retries-3) < m_searchIntervals.size()) {
+            interval = m_searchIntervals[it->retries - 3];
+        } else if (m_searchIntervals.empty() == false) {
+            interval = m_searchIntervals.back();
         } else {
-            // We can't insert the entry back to the front or we would loop forever
-            // so we move it to a temporary list
-            retries.splice(retries.end(), m_searchedPvs, m_searchedPvs.begin());
+            interval = 300;
         }
+        intervals.push_back(std::pair(it->pvname, interval));
+    }
+
+    // This is a separate loop because is shuffles the m_searchedPvs list
+    for (auto& [pvname, interval]: intervals) {
+        scheduleNextSearch(pvname, interval);
     }
 
     // Send some PVs in each iteration depending how large packets are allowed by a given protol.
@@ -160,9 +169,6 @@ void Searcher::processOutgoing()
 
         pvs.erase(pvs.begin(), pvs.begin() + nPvs);
     }
-
-    // Put the PVs to be retried back to the beginning of the list
-    m_searchedPvs.splice(m_searchedPvs.begin(), retries, retries.begin(), retries.end());
 }
 
 std::pair<uint32_t, uint32_t> Searcher::purgePVs(unsigned maxtime)
@@ -195,22 +201,18 @@ void Searcher::scheduleNextSearch(const std::string& pvname, uint32_t delay)
     // Increment the timestamp
     it->nextSearch += std::chrono::seconds(delay);
 
-    // Cache the nextSearch timestamp to be used later during the iteration
-    auto nextSearch = it->nextSearch;
+    // Performance optimization: skip continously searching PVs
+    // because they're always at the end of the queue
+    if (it->nextSearch < m_searchedPvs.back().nextSearch) {
 
-    // Move the element to the end of the list, hopefully that's the final position
-    m_searchedPvs.splice(m_searchedPvs.end(), m_searchedPvs, it);
-
-    // Find insertion point from the back
-    it = m_searchedPvs.end();
-    while (it != m_searchedPvs.begin()) {
-        --it;
-        if (it->nextSearch <= nextSearch) {
-            m_searchedPvs.splice(std::next(it), m_searchedPvs, std::prev(m_searchedPvs.end()));
-            return;
+        // Find proper position in a sorted list
+        for (auto jt = m_searchedPvs.begin(); jt != m_searchedPvs.end(); jt++) {
+            if (it->nextSearch <= jt->nextSearch) {
+                m_searchedPvs.splice(jt, m_searchedPvs, it);
+                return;
+            }
         }
     }
 
-    // If it's the smallest element, move it to the front
-    m_searchedPvs.splice(m_searchedPvs.begin(), m_searchedPvs, std::prev(m_searchedPvs.end()));
+    m_searchedPvs.splice(m_searchedPvs.end(), m_searchedPvs, it);
 }

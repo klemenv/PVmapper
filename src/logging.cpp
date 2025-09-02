@@ -83,6 +83,7 @@ namespace Log {
                 char buffer[64] = {0};
                 strftime(buffer, sizeof(buffer) - 1, "%Y-%m-%d %H:%M:%S", timeinfo);
                 printf("%s:%03d %s: %s\n", buffer, (int)millis, level2str(lvl), msg.str().c_str());
+                fflush(stdout);
             }
         }
     }

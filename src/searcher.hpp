@@ -8,12 +8,13 @@
 #include <map>
 #include <memory>
 #include <list>
+#include <vector>
 
 class Searcher : public Connection {
     public:
         typedef std::function<void(const std::string& pvname, const std::string& iocIp, uint16_t iocPort, const Protocol::Bytes& response)> PvFoundCb;
 
-    private:
+    protected:
         struct SearchedPV {
             uint32_t chanId;
             std::string pvname;
@@ -22,7 +23,7 @@ class Searcher : public Connection {
             uint32_t retries = 0;
         };
 
-        uint32_t m_searchInterval = 10;
+        std::vector<uint32_t> m_searchIntervals;
         uint32_t m_chanId = 0;
         std::shared_ptr<Protocol> m_protocol;
         std::list<SearchedPV> m_searchedPvs;
@@ -45,7 +46,7 @@ class Searcher : public Connection {
         void scheduleNextSearch(const std::string& pvname, uint32_t delay);
 
     public:
-        Searcher(const std::string& ip, uint16_t port, uint32_t searchInterval, const std::shared_ptr<Protocol>& protocol, PvFoundCb& foundPvCb);
+        Searcher(const std::string& ip, uint16_t port, const std::vector<uint32_t>& searchIntervals, const std::shared_ptr<Protocol>& protocol, PvFoundCb& foundPvCb);
         bool addPV(const std::string& pvname);
         void removePV(const std::string& pvname);
         void processIncoming();

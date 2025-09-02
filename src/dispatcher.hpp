@@ -36,7 +36,7 @@ class Dispatcher {
         std::map<std::string, PvInfo> m_connectedPVs;
 
         void addListener(const std::string& ip, uint16_t port, Proto proto);
-        void addSearcher(const std::string& ip, uint16_t port, Proto proto, uint32_t searchInterval);
+        void addSearcher(const std::string& ip, uint16_t port, Proto proto, const std::vector<uint32_t>& searchIntervals);
 
         void iocDisconnected(const std::string& iocIP, uint16_t port);
         void caPvFound(const std::string& pvname, const std::string& iocIP, uint16_t iocPort, const Protocol::Bytes& response);

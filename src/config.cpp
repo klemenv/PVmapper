@@ -2,6 +2,41 @@
 
 #include <fstream>
 
+static std::string strip(const std::string& str)
+{
+    size_t first = str.find_first_not_of(" \t\n\r\f\v");
+    if (std::string::npos == first) {
+        return str; // String is all whitespace
+    }
+    size_t last = str.find_last_not_of(" \t\n\r\f\v");
+    return str.substr(first, (last - first + 1));
+}
+
+static std::vector<unsigned> parseListUnsigned(const std::string& str, char delimiter=',')
+{
+    std::vector<unsigned> tokens;
+    size_t start = 0;
+    size_t end = str.find(delimiter);
+
+    while (end != std::string::npos) {
+        auto tmp = strip(str.substr(start, end - start));
+        auto num = (unsigned)atol(tmp.c_str());
+        if (num == 0 && tmp != "0") {
+            return {};
+        }
+        tokens.push_back(num);
+        start = end + 1;
+        end = str.find(delimiter, start);
+    }
+    auto tmp = strip(str.substr(start, end - start));
+    auto num = (unsigned)atol(tmp.c_str());
+    if (num == 0 && tmp != "0") {
+        return {};
+    }
+    tokens.push_back(num); // Add the last token
+    return tokens;
+}
+
 void Config::parseFile(const std::string& path)
 {
     std::regex reAllowPvs    ("^[ \t]*ALLOW_PV[= \t]+([^# ]*)[ \t]*(#.*)?$");
@@ -11,7 +46,7 @@ void Config::parseFile(const std::string& path)
     std::regex reLogLevel    ("^[ \t]*LOG_LEVEL[= \t]([^# \t]*)[ \t]*(#.*)?$");
     std::regex reLogFacility ("^[ \t]*SYSLOG_FACILITY[= \t]([^# \t]*)[ \t]*(#.*)?$");
     std::regex reLogId       ("^[ \t]*SYSLOG_ID[= \t]([^# \t]*)[ \t]*(#.*)?$");
-    std::regex reSearchInt   ("^[ \t]*SEARCH_INTERVAL[= \t]+([0-9]+)[ \t]*(#.*)?$");
+    std::regex reSearchInt   ("^[ \t]*SEARCH_INTERVALS[= \t]+([0-9, ]+)[ \t]*(#.*)?$");
     std::regex rePurgeDelay  ("^[ \t]*PURGE_DELAY[= \t]+([0-9]+)[ \t]*(#.*)?$");
     std::regex reCaListenAddr("^[ \t]*CA_LISTEN_ADDRESS[= \t]+([0-9]{1,3}(\\.[0-9]{1,3}){3})(:([0-9]{1,5}))?");
     std::regex reCaSearchAddr("^[ \t]*CA_SEARCH_ADDRESS[= \t]+([0-9]{1,3}(\\.[0-9]{1,3}){3})(:([0-9]{1,5}))?");
@@ -70,10 +105,11 @@ void Config::parseFile(const std::string& path)
             syslog_id = tokens[1].str();
 
         } else if (std::regex_match(line, tokens, reSearchInt)) {
-            auto tmp = std::atol(tokens[1].str().c_str());
-            if (tmp > 0) { search_interval = static_cast<unsigned>(tmp); }
-            else { fprintf(stderr, "ERROR: Invalid config value SEARCH_INTERVAL=%s\n", tokens[1].str().c_str()); }
-
+            search_intervals = parseListUnsigned(tokens[1].str());
+            if (search_intervals.empty()) {
+                fprintf(stderr, "ERROR: Invalid config value SEARCH_INTERVALS=%s\n", tokens[1].str().c_str());
+                search_intervals = {1, 5, 10, 30, 60, 300};
+            }
         } else if (std::regex_match(line, tokens, rePurgeDelay)) {
             auto tmp = std::atol(tokens[1].str().c_str());
             if (tmp > 0) { purge_delay = static_cast<unsigned>(tmp); }
