@@ -127,14 +127,21 @@ void Searcher::processOutgoing()
 {
     auto now = std::chrono::steady_clock::now();
     std::vector<std::pair<uint32_t, std::string>> pvs;
-    std::list<std::pair<std::string, uint32_t>> intervals;
+    std::list<SearchedPV> searchedPvs;
 
     // Stop at the first PV of which the search time is in the future
-    for (auto it = m_searchedPvs.begin(); it != m_searchedPvs.end() && it->nextSearch < now; it++) {
-        it->retries++;
+    auto it = m_searchedPvs.begin();
+    for (; it != m_searchedPvs.end() && it->nextSearch < now; it++) {
+    }
+
+    // Move away PVs to ensure proper scheduling
+    searchedPvs.splice(searchedPvs.begin(), m_searchedPvs, m_searchedPvs.begin(), it);
+
+    for (auto jt = searchedPvs.begin(); jt != searchedPvs.end(); jt++) {
+        jt->retries++;
 
         // Add to the list of PVs to be searched for this time
-        pvs.emplace_back(it->chanId, it->pvname);
+        pvs.emplace_back(jt->chanId, jt->pvname);
 
         // Calculate next search interval
         uint32_t interval;
@@ -147,12 +154,10 @@ void Searcher::processOutgoing()
         } else {
             interval = 300;
         }
-        intervals.push_back(std::pair(it->pvname, interval));
-    }
 
-    // This is a separate loop because is shuffles the m_searchedPvs list
-    for (auto& [pvname, interval]: intervals) {
-        scheduleNextSearch(pvname, interval);
+        // Re-insert to the beginning and then move it to the right spot
+        m_searchedPvs.splice(m_searchedPvs.begin(), searchedPvs, jt);
+        scheduleNextSearch(jt->pvname, interval);
     }
 
     // Send some PVs in each iteration depending how large packets are allowed by a given protol.
@@ -161,7 +166,7 @@ void Searcher::processOutgoing()
         const auto [msg, nPvs] = m_protocol->createSearchRequest(pvs);
 
         std::string tmp;
-        std::for_each(pvs.begin(), pvs.begin()+nPvs, [&tmp](auto& it) { tmp += it.second + ","; });
+        std::for_each(pvs.begin(), pvs.begin()+nPvs, [&tmp](auto& jt) { tmp += jt.second + ","; });
         tmp.pop_back();
         LOG_VERBOSE("Sending search request for ", tmp, " to ", DnsCache::resolveIP(m_searchIp), ":", m_searchPort);
 
