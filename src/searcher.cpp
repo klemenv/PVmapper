@@ -3,6 +3,7 @@
 #include "searcher.hpp"
 
 #include <algorithm>
+#include <cmath>
 #include <cstdint>
 #include <fcntl.h>
 #include <numeric>
@@ -35,6 +36,22 @@ Searcher::Searcher(const std::string& ip, uint16_t port, const std::vector<uint3
     if (::inet_aton(ip.c_str(), reinterpret_cast<in_addr*>(&m_addr.sin_addr.s_addr)) == 0) {
         throw SocketException("invalid IP address - {errno}");
     }
+
+    // Search at most every 0.1s
+    for (auto& interval: m_searchIntervals) {
+        interval *= 10;
+    }
+
+    // Start every search with 3 packets, one right now and two in next two attempts
+    m_searchIntervals.insert(m_searchIntervals.begin(), 2);
+    m_searchIntervals.insert(m_searchIntervals.begin(), 1);
+
+    // Now allocate buckets of PVs to be searched for every 0.1s apart
+    auto maxInterval = m_searchIntervals.back();
+    auto nBins = maxInterval;
+    m_searchedPvs.resize(nBins);
+
+    m_lastSearch = std::chrono::steady_clock::now();
 }
 
 uint32_t Searcher::getNextChanId()
@@ -42,8 +59,10 @@ uint32_t Searcher::getNextChanId()
     if (++m_chanId == INT32_MAX) {
         // Change ids of all searched PVs
         m_chanId = 0;
-        for (auto& pv: m_searchedPvs) {
-            pv.chanId = m_chanId++;
+        for (auto& bin: m_searchedPvs) {
+            for (auto& pv: bin) {
+                pv.chanId = m_chanId++;
+            }
         }
     }
     return m_chanId;
@@ -51,31 +70,35 @@ uint32_t Searcher::getNextChanId()
 
 bool Searcher::addPV(const std::string& pvname)
 {
-    for (auto& pv: m_searchedPvs) {
-        if (pv.pvname == pvname) {
-            // We're already searching for this PV
-            pv.lastSearched = std::chrono::steady_clock::now();
-            return false;
+    for (auto& bin: m_searchedPvs) {
+        for (auto& pv: bin) {
+            if (pv.pvname == pvname) {
+                // We're already searching for this PV
+                pv.lastSearched = std::chrono::steady_clock::now();
+                return false;
+            }
         }
     }
 
-    // Prepend the PV to the front of the list to be picked up next time we search for PVs
+    // Prepend the PV to the first bucket to be picked up next time we search for PVs
     SearchedPV pv;
     pv.pvname = pvname;
-    pv.nextSearch = std::chrono::steady_clock::now();
     pv.lastSearched = std::chrono::steady_clock::now();
     pv.chanId = m_chanId++;
-    m_searchedPvs.emplace_front(pv);
+    pv.intervals = m_searchIntervals;
+    m_searchedPvs[m_currentBin].emplace_front(pv);
 
     return true;
 }
 
 void Searcher::removePV(const std::string& pvname)
 {
-    for (auto it = m_searchedPvs.begin(); it != m_searchedPvs.end(); it++) {
-        if (it->pvname == pvname) {
-            m_searchedPvs.erase(it);
-            return;
+    for (auto& bin: m_searchedPvs) {
+        for (auto jt = bin.begin(); jt != bin.end(); jt++) {
+            if (jt->pvname == pvname) {
+                bin.erase(jt);
+                return;
+            }
         }
     }
 }
@@ -103,19 +126,23 @@ void Searcher::processIncoming()
             // nameserver is in between, so we need to set the IOC's IP in the packet.
             m_protocol->updateSearchReply(rsp, iocIp, iocPort);
 
-            // Most likely the PV exists all the time and the search reply
-            // will come back when the search intervals are small.
-            // In other words, those PVs will be at the beggining of the queue.
-            for (auto it = m_searchedPvs.begin(); it != m_searchedPvs.end(); it++) {
-                if (it->chanId == chanId) {
-                    auto pvname = it->pvname;
+            // The PV must be in one of the bins
+            for (size_t i = 0; i < m_searchedPvs.size(); i++) {
+                // Most likely the PV exists all the time and we'll find the PV right away.
+                // Look in the most recent bin first.
+                auto& bin = m_searchedPvs[(m_currentBin+i-1)%m_searchedPvs.size()];
+                for (auto it = bin.begin(); it != bin.end(); it++) {
+                    if (it->chanId == chanId) {
+                        auto pvname = it->pvname;
 
-                    m_searchedPvs.erase(it);
+                        bin.erase(it);
 
-                    LOG_VERBOSE("Found ", pvname, " on ", DnsCache::resolveIP(iocIp), ":", iocPort);
-                    m_foundPvCb(pvname, iocIp, iocPort, rsp);
+                        LOG_VERBOSE("Found ", pvname, " on ", DnsCache::resolveIP(iocIp), ":", iocPort);
+                        m_foundPvCb(pvname, iocIp, iocPort, rsp);
 
-                    break;
+                        i = m_searchedPvs.size();
+                        break;
+                    }
                 }
             }
         }
@@ -125,40 +152,35 @@ void Searcher::processIncoming()
 
 void Searcher::processOutgoing()
 {
-    auto now = std::chrono::steady_clock::now();
+    // Enforce 10Hz processing, but leave just a bit of tolerance
+    auto diff = std::chrono::steady_clock::now() - m_lastSearch;
+    auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(diff).count();
+    if (duration < 99) {
+        return;
+    }
+
     std::vector<std::pair<uint32_t, std::string>> pvs;
-    std::list<SearchedPV> searchedPvs;
 
-    // Stop at the first PV of which the search time is in the future
-    auto it = m_searchedPvs.begin();
-    for (; it != m_searchedPvs.end() && it->nextSearch < now; it++) {
-    }
+    auto& bin = m_searchedPvs[m_currentBin];
 
-    // Move away PVs to ensure proper scheduling
-    searchedPvs.splice(searchedPvs.begin(), m_searchedPvs, m_searchedPvs.begin(), it);
-
-    for (auto jt = searchedPvs.begin(); jt != searchedPvs.end(); jt++) {
-        jt->retries++;
-
+    for (auto it = bin.begin(); it != bin.end();) {
         // Add to the list of PVs to be searched for this time
-        pvs.emplace_back(jt->chanId, jt->pvname);
+        pvs.emplace_back(it->chanId, it->pvname);
 
-        // Calculate next search interval
-        uint32_t interval;
-        if (it->retries < 3) {
-            interval = 0;
-        } else if ((it->retries-3) < m_searchIntervals.size()) {
-            interval = m_searchIntervals[it->retries - 3];
-        } else if (m_searchIntervals.empty() == false) {
-            interval = m_searchIntervals.back();
+        // If not the last search interval, determine the new bin
+        // and move the element to that queue. If it is the last
+        // search interval, we leave it in current queue since it's
+        // exactly the max interval apart from now.
+        if (it->intervals.size() > 1) {
+            auto newBinIdx = (m_currentBin + it->intervals.front()) % m_searchedPvs.size();
+            it->intervals.erase(it->intervals.begin());
+            auto jt = it++; // the next command will invalidate current it iterator, make a copy
+            m_searchedPvs[newBinIdx].splice(m_searchedPvs[newBinIdx].begin(), bin, jt);
         } else {
-            interval = 300;
+            it++;
         }
-
-        // Re-insert to the beginning and then move it to the right spot
-        m_searchedPvs.splice(m_searchedPvs.begin(), searchedPvs, jt);
-        scheduleNextSearch(jt->pvname, interval);
     }
+    m_currentBin = ((m_currentBin + 1) % m_searchedPvs.size());
 
     // Send some PVs in each iteration depending how large packets are allowed by a given protol.
     // Keep iterating until there's more PVs to search for
@@ -179,45 +201,37 @@ void Searcher::processOutgoing()
 std::pair<uint32_t, uint32_t> Searcher::purgePVs(unsigned maxtime)
 {
     unsigned nPurged = 0;
-    for (auto it = m_searchedPvs.begin(); it != m_searchedPvs.end();) {
-        auto diff = std::chrono::steady_clock::now() - it->lastSearched;
-        auto duration = std::chrono::duration_cast<std::chrono::seconds>(diff).count();
-        if (duration > maxtime) {
-            LOG_VERBOSE("Purged ", it->pvname, ", last searched ", duration, " seconds ago");
-            it = m_searchedPvs.erase(it);
-            nPurged++;
-        } else {
-            it++;
-        }
-    }
-
-    return std::make_pair(nPurged, m_searchedPvs.size());
-}
-
-void Searcher::scheduleNextSearch(const std::string& pvname, uint32_t delay)
-{
-    // Find an iterator to the element in the list
-    auto it = std::find_if(m_searchedPvs.begin(), m_searchedPvs.end(), [&pvname](auto &el) {
-        return (el.pvname == pvname);
-    });
-
-    if (it == m_searchedPvs.end()) return;
-
-    // Increment the timestamp
-    it->nextSearch += std::chrono::seconds(delay);
-
-    // Performance optimization: skip continously searching PVs
-    // because they're always at the end of the queue
-    if (it->nextSearch < m_searchedPvs.back().nextSearch) {
-
-        // Find proper position in a sorted list
-        for (auto jt = m_searchedPvs.begin(); jt != m_searchedPvs.end(); jt++) {
-            if (it->nextSearch <= jt->nextSearch) {
-                m_searchedPvs.splice(jt, m_searchedPvs, it);
-                return;
+    std::list<SearchedPV> pvs;
+    for (auto& bin: m_searchedPvs) {
+        for (auto it = bin.begin(); it != bin.end();) {
+            auto diff = std::chrono::steady_clock::now() - it->lastSearched;
+            auto duration = std::chrono::duration_cast<std::chrono::seconds>(diff).count();
+            if (duration > maxtime) {
+                LOG_VERBOSE("Purged ", it->pvname, ", last searched ", duration, " seconds ago");
+                it = bin.erase(it);
+                nPurged++;
+            } else {
+                it++;
             }
         }
-    }
 
-    m_searchedPvs.splice(m_searchedPvs.end(), m_searchedPvs, it);
+        // Move all PVs to a temporary queue where they can be balanced in queues
+        pvs.splice(pvs.end(), bin);
+        bin.clear();
+    }
+    auto nSearching = pvs.size();
+
+    // Balance the PVs in bins evenly
+    for (size_t i = 0; i < m_searchedPvs.size() && !pvs.empty(); i++) {
+        double nPvs = static_cast<double>(pvs.size());
+        double nBins = static_cast<double>(m_searchedPvs.size() - i);
+        auto pvsPerBin = static_cast<size_t>(std::ceil(nPvs/nBins));
+        if (pvsPerBin > pvs.size()) {
+            pvsPerBin = pvs.size();
+        }
+        m_searchedPvs[i].splice(m_searchedPvs[i].begin(), pvs, pvs.begin(), std::next(pvs.begin(), pvsPerBin));
+    }
+    m_currentBin = 0;
+
+    return std::make_pair(nPurged, nSearching);
 }
