@@ -3,7 +3,6 @@
 #include "searcher.hpp"
 
 #include <algorithm>
-#include <cmath>
 #include <cstdint>
 #include <fcntl.h>
 #include <numeric>
@@ -223,13 +222,20 @@ std::pair<uint32_t, uint32_t> Searcher::purgePVs(unsigned maxtime)
 
     // Balance the PVs in bins evenly
     for (size_t i = 0; i < m_searchedPvs.size() && !pvs.empty(); i++) {
-        double nPvs = static_cast<double>(pvs.size());
-        double nBins = static_cast<double>(m_searchedPvs.size() - i);
-        auto pvsPerBin = static_cast<size_t>(std::ceil(nPvs/nBins));
+        auto pvsPerBin = 1 + pvs.size() / (m_searchedPvs.size() - i);
+        if (pvsPerBin < 10) {
+            // Not optimal to send only a few PVs in a UDP packet, let's 
+            // combine some PVs. Pick 10 as conservative number of how many
+            // PVs can fit in a single packet, but still significant improvement
+            // when pvsPerBin is very small.
+            i += (10 - pvsPerBin - 1);
+            pvsPerBin = 10;
+        }
         if (pvsPerBin > pvs.size()) {
             pvsPerBin = pvs.size();
         }
         m_searchedPvs[i].splice(m_searchedPvs[i].begin(), pvs, pvs.begin(), std::next(pvs.begin(), pvsPerBin));
+        LOG_ERROR("bin=", i, " pvs=", pvsPerBin);
     }
     m_currentBin = 0;
 
