@@ -214,29 +214,34 @@ std::pair<uint32_t, uint32_t> Searcher::purgePVs(unsigned maxtime)
             }
         }
 
-        // Move all PVs to a temporary queue where they can be balanced in queues
+        // Move all PVs to a temporary queue where they can be balanced to bins evenly
         pvs.splice(pvs.end(), bin);
         bin.clear();
     }
     auto nSearching = pvs.size();
 
-    // Balance the PVs in bins evenly
+    // Balance the PVs in bins evenly, allowing some bins to be empty if the total number of PVs is small
+    size_t pvsPerBin = std::ceil(1.0 * pvs.size() / m_searchedPvs.size());
     for (size_t i = 0; i < m_searchedPvs.size() && !pvs.empty(); i++) {
-        auto pvsPerBin = 1 + pvs.size() / (m_searchedPvs.size() - i);
-        if (pvsPerBin < 10) {
+        auto& bin = m_searchedPvs[i];
+        size_t nPvs = std::min(pvsPerBin, pvs.size());
+        if (nPvs < 10) {
             // Not optimal to send only a few PVs in a UDP packet, let's 
             // combine some PVs. Pick 10 as conservative number of how many
             // PVs can fit in a single packet, but still significant improvement
             // when pvsPerBin is very small.
-            i += (10 - pvsPerBin - 1);
-            pvsPerBin = 10;
+            i += (10 - nPvs - 1);
+            nPvs = std::min(pvs.size(), (size_t)10);
         }
-        if (pvsPerBin > pvs.size()) {
-            pvsPerBin = pvs.size();
-        }
-        m_searchedPvs[i].splice(m_searchedPvs[i].begin(), pvs, pvs.begin(), std::next(pvs.begin(), pvsPerBin));
-        LOG_ERROR("bin=", i, " pvs=", pvsPerBin);
+        bin.splice(bin.begin(), pvs, pvs.begin(), std::next(pvs.begin(), nPvs));
     }
+
+    // Unlikely but possible scenario: if any PVs remain (due to rounding or skip logic),
+    // add them to the last bin
+    if (!pvs.empty()) {
+        m_searchedPvs.back().splice(m_searchedPvs.back().end(), pvs);
+    }
+
     m_currentBin = 0;
 
     return std::make_pair(nPurged, nSearching);
