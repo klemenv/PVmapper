@@ -3,6 +3,7 @@
 #include "searcher.hpp"
 
 #include <algorithm>
+#include <cmath>
 #include <cstdint>
 #include <fcntl.h>
 #include <numeric>
@@ -221,7 +222,7 @@ std::pair<uint32_t, uint32_t> Searcher::purgePVs(unsigned maxtime)
     auto nSearching = pvs.size();
 
     // Balance the PVs in bins evenly, allowing some bins to be empty if the total number of PVs is small
-    size_t pvsPerBin = std::ceil(1.0 * pvs.size() / m_searchedPvs.size());
+    auto pvsPerBin = static_cast<size_t>(std::ceil(static_cast<double>(pvs.size()) / m_searchedPvs.size()));
     for (size_t i = 0; i < m_searchedPvs.size() && !pvs.empty(); i++) {
         auto& bin = m_searchedPvs[i];
         size_t nPvs = std::min(pvsPerBin, pvs.size());

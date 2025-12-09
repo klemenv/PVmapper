@@ -1,5 +1,5 @@
 CXX = g++
-CXX_FLAGS = -Wfatal-errors -Wall -Wextra -Wconversion -Wshadow -std=c++17
+CXX_FLAGS = -Wfatal-errors -Wall -Wextra -Wshadow -std=c++17
 #CXX_FLAGS += -g -ggdb -O0 -DDEBUG
 
 # Enable using resolv library for to obtain TTL for DNS records (only works on POSIX systems)
