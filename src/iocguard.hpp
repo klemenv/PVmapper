@@ -33,9 +33,16 @@ class IocGuard : public Connection {
         DisconnectCb m_disconnectCb;
         std::string m_ip;
         uint16_t m_port;
+        std::chrono::steady_clock::time_point m_started;
         std::chrono::steady_clock::time_point m_lastRequest;
         std::chrono::steady_clock::time_point m_lastResponse;
         unsigned m_heartbeatInterval = 10;
+        bool m_connected = false;
+
+        /**
+         * @brief Check if non-blocking socket is connected
+         */
+        bool checkConnection();
 
         /**
          * @brief Sends an echo/heartbeat (e.g. ECHO) request to the IOC.
