@@ -56,6 +56,7 @@ void IocGuard::processIncoming()
         if (recvd > 0) {
             LOG_VERBOSE("Received heart-beat response from IOC ", DnsCache::resolveIP(m_ip), ":", m_port);
             m_lastResponse = std::chrono::steady_clock::now();
+            m_initialized = true;
         } else {
             ::close(m_sock);
             m_sock = -1;
@@ -111,7 +112,7 @@ bool IocGuard::checkConnection()
 void IocGuard::sendHeartBeat()
 {
     if (m_lastRequest < m_lastResponse) {
-        auto msg = m_protocol->createEchoRequest(false);
+        auto msg = m_protocol->createEchoRequest(!m_initialized);
         if (::send(m_sock, msg.data(), msg.size(), 0) > 0) {
             LOG_DEBUG("Sent heart-beat request to ", DnsCache::resolveIP(m_ip), ":", m_port);
             m_lastRequest = std::chrono::steady_clock::now();

@@ -38,6 +38,7 @@ class IocGuard : public Connection {
         std::chrono::steady_clock::time_point m_lastResponse;
         unsigned m_heartbeatInterval = 10;
         bool m_connected = false;
+        bool m_initialized = false;
 
         /**
          * @brief Check if non-blocking socket is connected
