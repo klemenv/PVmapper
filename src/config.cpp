@@ -48,8 +48,8 @@ void Config::parseFile(const std::string& path)
     std::regex reLogId       ("^[ \t]*SYSLOG_ID[= \t]([^# \t]*)[ \t]*(#.*)?$");
     std::regex reSearchInt   ("^[ \t]*SEARCH_INTERVALS[= \t]+([0-9, ]+)[ \t]*(#.*)?$");
     std::regex rePurgeDelay  ("^[ \t]*PURGE_DELAY[= \t]+([0-9]+)[ \t]*(#.*)?$");
-    std::regex reCaListenAddr("^[ \t]*CA_LISTEN_ADDRESS[= \t]+([0-9]{1,3}(\\.[0-9]{1,3}){3})(:([0-9]{1,5}))?");
-    std::regex reCaSearchAddr("^[ \t]*CA_SEARCH_ADDRESS[= \t]+([0-9]{1,3}(\\.[0-9]{1,3}){3})(:([0-9]{1,5}))?");
+    std::regex reCaListenAddr("^[ \t]*CA_LISTEN_ADDRESS[= \t]+([0-9]{1,3}(\\.[0-9]{1,3}){3}):([0-9]{1,5})");
+    std::regex reCaSearchAddr("^[ \t]*CA_SEARCH_ADDRESS[= \t]+([0-9]{1,3}(\\.[0-9]{1,3}){3}):([0-9]{1,5})");
 
     auto toLower = [](const std::string& s) {
         std::string o;
@@ -117,14 +117,14 @@ void Config::parseFile(const std::string& path)
 
         } else if (std::regex_match(line, tokens, reCaListenAddr)) {
             auto addr = tokens[1].str();
-            auto tmp = std::atol(tokens[4].str().c_str());
+            auto tmp = std::atol(tokens[3].str().c_str());
             if (tmp > 0 && tmp < 65535) {
                 ca_listen_addresses.emplace_back(addr, tmp);
             }
 
         } else if (std::regex_match(line, tokens, reCaSearchAddr)) {
             auto addr = tokens[1].str();
-            auto tmp = std::atol(tokens[4].str().c_str());
+            auto tmp = std::atol(tokens[3].str().c_str());
             if (tmp > 0 && tmp < 65535) {
                 ca_search_addresses.emplace_back(addr, tmp);
             }
