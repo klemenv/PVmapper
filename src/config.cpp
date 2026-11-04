@@ -2,6 +2,9 @@
 
 #include <fstream>
 
+static constexpr int pvmapper_default_listen_port = 5053;
+static constexpr int ca_default_search_port = 5064;
+
 static std::string strip(const std::string& str)
 {
     size_t first = str.find_first_not_of(" \t\n\r\f\v");
@@ -48,7 +51,7 @@ void Config::parseFile(const std::string& path)
     std::regex reLogId       ("^[ \t]*SYSLOG_ID[= \t]([^# \t]*)[ \t]*(#.*)?$");
     std::regex reSearchInt   ("^[ \t]*SEARCH_INTERVALS[= \t]+([0-9, ]+)[ \t]*(#.*)?$");
     std::regex rePurgeDelay  ("^[ \t]*PURGE_DELAY[= \t]+([0-9]+)[ \t]*(#.*)?$");
-    std::regex reCaListenAddr("^[ \t]*CA_LISTEN_ADDRESS[= \t]+([0-9]{1,3}(\\.[0-9]{1,3}){3})(:([0-9]{1,5}))?");
+    std::regex reCaListenAddr("^[ \t]*CA_LISTEN_ADDRESS[= \t]+([0-9]{1,3}(\\.[0-9]{1,3}){3}):([0-9]{1,5})");
     std::regex reCaSearchAddr("^[ \t]*CA_SEARCH_ADDRESS[= \t]+([0-9]{1,3}(\\.[0-9]{1,3}){3})(:([0-9]{1,5}))?");
 
     auto toLower = [](const std::string& s) {
@@ -117,22 +120,25 @@ void Config::parseFile(const std::string& path)
 
         } else if (std::regex_match(line, tokens, reCaListenAddr)) {
             auto addr = tokens[1].str();
-            auto tmp = std::atol(tokens[4].str().c_str());
-            if (tmp > 0 && tmp < 65535) {
-                ca_listen_addresses.emplace_back(addr, tmp);
+            auto port = std::atol(tokens[3].str().c_str());
+            if (port > 0 && port < 65535) {
+                ca_listen_addresses.emplace_back(addr, port);
             }
 
         } else if (std::regex_match(line, tokens, reCaSearchAddr)) {
             auto addr = tokens[1].str();
-            auto tmp = std::atol(tokens[4].str().c_str());
-            if (tmp > 0 && tmp < 65535) {
-                ca_search_addresses.emplace_back(addr, tmp);
+            auto port = ca_default_search_port;
+            if (tokens[4].matched) {
+                port = std::atol(tokens[4].str().c_str());
+            }
+            if (port > 0 && port < 65535) {
+                ca_search_addresses.emplace_back(addr, port);
             }
 
         }
     }
 
     if (ca_listen_addresses.empty()) {
-        ca_listen_addresses.emplace_back("0.0.0.0", 5053);
+        ca_listen_addresses.emplace_back("0.0.0.0", pvmapper_default_listen_port);
     }
 }

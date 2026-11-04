@@ -96,9 +96,10 @@ CA_LISTEN_ADDRESS=10.0.0.10:5053
 
 ### Search Address
 
-The CA_SEARCH_ADDRESS parameter defines the network address and UDP port that 
-PVmapper uses to send Channel Access (CA) search requests when attempting 
-to locate Process Variables (PVs).
+The CA_SEARCH_ADDRESS parameter defines the network address and UDP port that
+PVmapper uses to send Channel Access (CA) search requests when attempting to
+locate Process Variables (PVs). The port is optional and defaults to 5064 if
+not specified.
 
 PVmapper currently supports EPICS Channel Access (CA) only. It sends and 
 receives CA search traffic using UDP and listens only on the explicitly 
